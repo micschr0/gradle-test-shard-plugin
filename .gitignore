@@ -11,5 +11,3 @@ e2e/build/
 # Local AI runtime state
 .atl/
 .codegraph/
-# Property-test run database (jqwik); local-only, regen on test failure
-.jqwik-database

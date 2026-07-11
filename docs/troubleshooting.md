@@ -1,14 +1,8 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # Troubleshooting sharded builds
 
 Diagnose and fix a sharded CI build where modules skip on all nodes or duplicate across nodes.
-
-## Table of contents
-
-- [Step 1 — Reproduce locally](#step-1--reproduce-locally)
-- [Step 2 — Diagnose "ran on zero nodes"](#step-2--diagnose-ran-on-zero-nodes)
-- [Step 3 — Retry semantics](#step-3--retry-semantics)
-- [Step 4 — JaCoCo aggregation](#step-4--jacoco-aggregation)
-- [Step 5 — Plan inspection](#step-5--plan-inspection)
 
 ## Prerequisites
 
@@ -205,10 +199,13 @@ re-dispatches a single matrix cell.
 
 ## Step 4 — JaCoCo aggregation
 
-JaCoCo coverage is per-shard. To produce one aggregated report, merge the
-`.exec` files from all nodes in a post-shard collect job. The following shell
-snippet runs in a single job that has access to all nodes' `.exec` files (via
-pipeline artifacts or shared storage):
+Shardwise runs each module's test task on exactly one node. JaCoCo instruments
+those tasks normally, but on the other nodes `jacocoTestReport` skips because
+the execution data file is missing. Aggregated reports and threshold checks must
+therefore merge `.exec` files from all nodes in a post-shard collect job.
+
+The following shell snippet runs in a single job that has access to all nodes'
+`.exec` files (via pipeline artifacts or shared storage):
 
 ```bash
 #!/usr/bin/env bash

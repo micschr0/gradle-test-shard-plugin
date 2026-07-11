@@ -1,3 +1,5 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # Migrate from manual sharding to Shardwise
 
 Your Gradle build uses `parallel: 3` in GitLab CI plus a hand-maintained per-node test list — or no list at all, letting whichever node finishes first run everything. This creates three problems:
@@ -7,17 +9,6 @@ Your Gradle build uses `parallel: 3` in GitLab CI plus a hand-maintained per-nod
 3. **Non-reproducibility.** The same commit can shard differently across CI runs because nothing ties a module's assignment to its content.
 
 After this tutorial, your `parallel: 3` line stays; your hand-maintained test list goes. Shardwise uses Greedy-LPT bin-packing against a `test-weights.properties` file to balance the assignment deterministically. The tutorial ends with a coverage assertion proving no module is ever silently lost.
-
-## Contents
-
-- [Subgoal 1 — Capture the current distribution to a baseline](#subgoal-1--capture-the-current-distribution-to-a-baseline)
-- [Subgoal 2 — Apply the Shardwise plugin](#subgoal-2--apply-the-shardwise-plugin)
-- [Subgoal 3 — Generate the weights file](#subgoal-3--generate-the-weights-file)
-- [Subgoal 4 — Verify the coverage invariant](#subgoal-4--verify-the-coverage-invariant)
-- [Subgoal 5 — Tear down the manual sharding](#subgoal-5--tear-down-the-manual-sharding)
-- [Subgoal 6 — Keep the weights fresh (your turn)](#subgoal-6--keep-the-weights-fresh-your-turn)
-- [The sample project we anchor on](#the-sample-project-we-anchor-on)
-
 
 ## The sample project we anchor on
 
@@ -63,7 +54,7 @@ For the sample project, a typical "before" log shows Node 1 doing almost nothing
 
 ### If you see "BUILD FAILED before any test ran"
 
-Your `:test` configuration references `$CI_NODE_INDEX` without handling the unset case. Some CI runners set `$CI_NODE_INDEX` to "1" by default even when `CI_NODE_TOTAL` is unset locally.
+Your `:test` configuration references `$CI_NODE_INDEX` without handling the unset case. Local runs (`CI_NODE_TOTAL` unset) might still set `$CI_NODE_INDEX` to "1" by default in some CI runners. Run `printenv | grep CI_` first; the output should show both `CI_NODE_INDEX` and `CI_NODE_TOTAL` present or both absent.
 
 ---
 
@@ -78,7 +69,7 @@ In your root `build.gradle.kts`:
 ```kotlin
 plugins {
     // ... your existing plugins
-    id("de.micschro.shardwise") version "0.2.0"
+    id("de.micschro.shardwise") version "0.1.0"
 }
 ```
 
@@ -105,7 +96,7 @@ Notice which tasks ran: shard 1's deterministic plan assigned `:services:checkou
 
 ### If you see "Plugin 'de.micschro.shardwise' not found"
 
-You likely declared `id("de.micschro.shardwise") version "0.2.0"` in `plugins {}` but the plugin portal isn't in your `pluginManagement {}` repositories. Check your `settings.gradle.kts`:
+You likely declared `id("de.micschro.shardwise") version "0.1.0"` in `plugins {}` but the plugin portal isn't in your `pluginManagement {}` repositories. Check your `settings.gradle.kts`:
 
 ```kotlin
 pluginManagement {
@@ -221,7 +212,7 @@ tasks.withType<Test>().configureEach {
 
 After: nothing. Shardwise attaches its own `onlyIf` to every matching `Test` task. Your manual one was either a subset or a superset, and Shardwise will fight both.
 
-Search your repo for `CI_NODE_INDEX` and `CI_NODE_TOTAL` — anywhere those names appear in `*.gradle.kts` files, they are candidates for deletion. (They appear in your `e2e/` tests and `.gitlab-ci.yml`; those are not the plugin configuration.)
+Search your repo for `CI_NODE_INDEX` and `CI_NODE_TOTAL` — anywhere those names appear in `*.gradle.kts` files, they are candidates for deletion. (They should still appear in your `e2e/` tests and `.gitlab-ci.yml`; those are not the plugin configuration.)
 
 ### If you see "a task is skipped when both your old onlyIf and Shardwise say run"
 

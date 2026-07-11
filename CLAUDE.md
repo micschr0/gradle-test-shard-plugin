@@ -85,6 +85,18 @@ Pure Core     .internal                     TestShardPlanner, TestWeights, PlanR
 - **Coverage gate:** kover enforces ≥80% line coverage. Deliberate drops need the threshold
   adjusted and justified in the commit message.
 
+## SDD Convention
+
+SDD artifacts live in `plans/` — this is the **single source of truth** (migrated from
+`openspec/` on 2026-07-19). Structure:
+
+- `plans/config.yaml` — stack info, TDD config
+- `plans/2026-07-17-features/<NN-slug>/` — active changes
+- `plans/archive/<YYYY-MM-DD-slug>/` — completed changes
+- `plans/README.md` — artifact store convention
+
+Durable specs are named `SPEC.md`, proposals are `PROPOSAL.md`. Before starting any SDD
+work, read `~/.claude/skills/_shared/sdd-orchestrator-workflow.md`.
 
 ## Tooling
 

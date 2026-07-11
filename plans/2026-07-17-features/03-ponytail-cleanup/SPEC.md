@@ -1,6 +1,6 @@
 # Ponytail Cleanup + ktlint for Unused-Import Detection — Durable Spec
 
-> **Convention:** Per repo convention (see `docs/internals/decisions/02-followup-debt/SPEC.md`), durable specs live in `plans/`. (Former `openspec/` scratch folder was removed during migration — single source of truth is now `plans/`.)
+> **Convention:** Per repo convention (see `plans/2026-07-17-features/02-followup-debt/SPEC.md`), durable specs live in `plans/`. (Former `openspec/` scratch folder was removed during migration — single source of truth is now `plans/`.)
 > **Spec-Driven Development:** This change is retro-spec'd. Apply ran before spec; this file captures the work for traceability per SDD workflow §Dependency Graph. Verify will run against this spec.
 
 ## Intent
@@ -118,4 +118,5 @@ One new plugin: `org.jlleitschuh.gradle.ktlint:14.2.0` (from Gradle Plugin Porta
 ---
 
 **Date:** 2026-07-19
-**Durable storage:** `docs/internals/decisions/2026-07-17-ponytail-cleanup.md` (this file)
+**Durable storage:** `plans/2026-07-17-features/03-ponytail-cleanup/SPEC.md` (this file)
+**Audit lineage:** derived from `plans/2026-07-17-audit.md` ponytail-audit + detekt investigation

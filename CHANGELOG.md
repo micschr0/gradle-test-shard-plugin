@@ -1,8 +1,9 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
 # Changelog
 
 All notable changes to this project are documented in this file.
 
-The format follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions. (Pre-1.0: no SemVer commitment; see README.)
+The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
@@ -37,8 +38,6 @@ The format follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   falling back to `defaultWeight` (count-based balancing).
 
 ## [0.1.0]
-
-### Added
 
 - `.github/workflows/release.yml`: hardened `v*`-tag release workflow that
   gates `publishPlugins` on `./gradlew check`.

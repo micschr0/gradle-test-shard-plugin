@@ -11,56 +11,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Cache ON: `./gradlew check` is local-build-style verification and benefits
-  # from cache hits (5min → 1min on cold runs). Per user policy, only weight-
-  # computing jobs disable cache; `check` is not one of them.
-  check:
-    name: Verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-
-      - run: ./gradlew check
-
-  # Cache OFF: the artifact on the Plugin Portal is effectively permanent after
-  # the 7-day self-service delete window. A poisoned cache entry could ship a
-  # broken plugin that no one can remove — see gradle/actions#72 for the
-  # underlying cache-contamination risk.
   publish:
     name: Publish plugin
-    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
-      id-token: write # Sigstore OIDC signing during publishPlugins
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      # A release must never build from a cache that PR branches can write to
+      # (cache poisoning). Cold builds cost a few minutes; a poisoned artifact
+      # on the Plugin Portal is unrecoverable.
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           cache-disabled: true
 
+      - run: ./gradlew check
+
       - name: Publish to the Plugin Portal
+        if: startsWith(github.ref, 'refs/tags/v')
         run: ./gradlew publishPlugins
         env:
           GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}

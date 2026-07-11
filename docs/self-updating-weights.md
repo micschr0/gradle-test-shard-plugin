@@ -1,18 +1,10 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # Self-updating test weights
 
 This page explains how to generate a `test-weights.properties` file from JUnit
 XML timings and refresh it automatically so every parallel node in a CI pipeline
 reads the same file.
-
-## Contents
-
-- [Goal](#goal)
-- [Prerequisites](#prerequisites)
-- [Step 1 — Generate the weights file](#step-1--generate-the-weights-file)
-- [Step 2 — Commit the initial file](#step-2--commit-the-initial-file)
-- [Step 3 — Choose a refresh strategy](#step-3--choose-a-refresh-strategy)
-- [Step 4 — Verify](#step-4--verify)
-
 
 ## Goal
 

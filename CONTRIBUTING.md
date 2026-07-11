@@ -1,3 +1,5 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # Contributing to Shardwise
 
 How to build, test, and submit changes while keeping the public API, coverage

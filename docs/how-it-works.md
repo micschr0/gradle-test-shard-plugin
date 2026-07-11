@@ -1,20 +1,8 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # How Shardwise works
 
-Shardwise distributes weighted test modules across N parallel CI nodes using Greedy-LPT (Longest Processing Time) bin-packing, producing a deterministic plan that keeps every module running on exactly one node. After reading this, you can predict which module lands where and why the planner errs toward running, never skipping, when in doubt.
-
-## Contents
-
-- [The problem](#the-problem)
-- [The algorithm: Greedy-LPT](#the-algorithm-greedy-lpt)
-- [The two invariants](#the-two-invariants)
-  - [1. Coverage beats balance](#1-coverage-beats-balance)
-  - [2. All nodes derive the identical plan](#2-all-nodes-derive-the-identical-plan)
-- [Architecture: pure core, thin glue](#architecture-pure-core-thin-glue)
-- [Configuration-cache safety](#configuration-cache-safety)
-- [Why \`onlyIf\` and not task exclusion?](#why-onlyif-and-not-task-exclusion)
-- [Observing the plan](#observing-the-plan)
-- [Scope and known limitations](#scope-and-known-limitations)
-
+Shardwise distributes weighted test modules across N parallel CI nodes using Greedy-LPT bin-packing, producing a deterministic plan that keeps every module running on exactly one node. After reading this, you can predict which module lands where and why the planner errs toward running, never skipping, when in doubt.
 
 > **Glossary.** In this explanation: **module** means a Gradle subproject, **CI node** is the runner that executes a job, **plan** is the deterministic shard assignment (not "shard plan" or "partition"), and **weights** are relative timing values per module. See the [configuration reference](configuration.md) for the canonical DSL terms.
 >
@@ -32,7 +20,7 @@ node 3  ████                   4 min   node 3  ████████�
         ▲ wall time: 20 min                    ▲ wall time: 12 min
 ```
 
-## The algorithm: Greedy-LPT
+## The algorithm: Greedy LPT
 
 Exact makespan minimisation is NP-hard; Longest Processing Time (LPT) approximates it within 4/3 and can be made deterministic:
 
@@ -106,7 +94,6 @@ There is no coordinator. Each of the N parallel nodes independently computes the
 
 ## Architecture: pure core, thin glue
 
-CC = configuration cache.
 ```text
 src/main/kotlin/de/micschro/shardwise/
 ├── ShardwisePlugin.kt            Gradle glue (public)
