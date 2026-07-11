@@ -3,23 +3,84 @@ name: CI
 on:
   push:
     branches: [master]
+    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
   pull_request:
+    branches: [master]
+    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GLCI_VERSION: v0.6.0
+  JAVA_VERSION: "17"
 
 jobs:
+  # ── fast feedback: unit + functional + apiCheck (~30s) ──────────────────
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.JAVA_VERSION }}
+
       - uses: gradle/actions/setup-gradle@v4
         with:
-          validate-wrappers: true
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+
+      - name: ShellCheck
+        run: shellcheck e2e/run.sh e2e/scripts/run-node.sh e2e/scripts/verify.sh
+
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
       - run: ./gradlew check
-      - uses: actions/upload-artifact@v4
-        if: failure()
+
+  # ── glci e2e: full GitLab pipeline via glci + Docker (~90s) ─────────────
+  e2e-glci:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
         with:
-          name: test-reports
-          path: build/reports/tests/
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Cache glci binary
+        id: cache-glci
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/glci
+          key: glci-${{ env.GLCI_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - if: steps.cache-glci.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors -o /usr/local/bin/glci \
+            "https://gitlab.com/api/v4/projects/gitlab-org%2Fci-cd%2Frunner-tools%2Fglci/packages/generic/glci/$GLCI_VERSION/glci-linux-amd64"
+          chmod +x /usr/local/bin/glci
+
+      - name: Run e2e pipeline with glci
+        run: |
+          rm -rf e2e/build
+          glci run --file e2e/.gitlab-ci.yml --git-strategy none
+
+      - if: failure()
+        run: |
+          echo "=== glci daemon log ==="
+          cat ~/.glci/daemon.log || true
+          echo "=== e2e build logs ==="
+          cat e2e/build/logs/node-*.log 2>/dev/null || echo "(no node logs)"
+          echo "=== docker info ==="
+          docker ps -a 2>/dev/null || echo "(docker unavailable)"

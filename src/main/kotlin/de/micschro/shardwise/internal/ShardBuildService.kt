@@ -31,7 +31,8 @@ internal abstract class ShardBuildService : BuildService<ShardBuildService.Param
     /** Unknown tasks and modules default to running rather than being silently skipped. */
     fun runsOnThisNode(taskName: String, modulePath: String): Boolean {
         if (nodeTotal <= 1) return true
-        val plan = plans[taskName] ?: return true
-        return plan.runsOn(parameters.nodeIndex.get(), modulePath)
+        return plans[taskName]?.let { plan ->
+            plan.runsOn(parameters.nodeIndex.get(), modulePath)
+        } ?: true
     }
 }

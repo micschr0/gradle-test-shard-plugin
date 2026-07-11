@@ -1,6 +1,7 @@
 plugins {
     id("java-gradle-plugin")
     kotlin("jvm") version "2.4.0"
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
     id("org.jetbrains.kotlinx.binary-compatibility-validator") version "0.18.1"
     id("com.gradle.plugin-publish") version "2.1.1"
 }
@@ -67,3 +68,10 @@ tasks.validatePlugins {
     enableStricterValidation = true
     failOnWarning = true
 }
+
+detekt {
+    buildUponDefaultConfig = true
+    config.from(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
+}
+
+tasks.named("check") { dependsOn(tasks.named("detekt")) }

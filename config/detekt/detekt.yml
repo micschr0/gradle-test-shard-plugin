@@ -1,0 +1,57 @@
+# detekt configuration for gradle-test-shard-plugin.
+# buildUponDefaultConfig = true, so this only overrides/tightens defaults.
+
+style:
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+    excludePackageStatements: true
+    excludeImportStatements: true
+    excludeCommentStatements: true
+  MagicNumber:
+    active: true
+    ignoreNumbers: ["-1", "0", "1", "2"]
+  WildcardImport:
+    active: true
+  ForbiddenComment:
+    active: true
+    comments:
+      - reason: "use TODO instead"
+        value: "FIXME"
+      - reason: "should not be merged"
+        value: "STOPSHIP"
+  ReturnCount:
+    active: true
+    max: 3
+    excludeGuardClauses: true
+
+naming:
+  MatchingDeclarationName:
+    active: false
+  FunctionNaming:
+    functionPattern: '[a-z][a-zA-Z0-9]*'
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][A-Za-z0-9]*'
+
+complexity:
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 15
+    thresholdInClasses: 10
+    ignoreDeprecated: true
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 10
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+  InstanceOfCheckForException:
+    active: true
+
+performance:
+  SpreadOperator:
+    active: true
+  ForEachOnRange:
+    active: true

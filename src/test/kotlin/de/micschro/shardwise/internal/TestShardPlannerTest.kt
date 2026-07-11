@@ -58,7 +58,9 @@ class TestShardPlannerTest {
     fun `greedy LPT balances heavy modules across shards`() {
         val mods = modules("heavy-1" to 100, "heavy-2" to 100, "med-1" to 50, "med-2" to 50)
         val plan = planner.plan(mods, nodeTotal = 2)
-        val loads = plan.assignments.values.map { shard -> shard.sumOf { path -> mods.first { it.path == path }.weight } }
+        val loads = plan.assignments.values.map { shard ->
+            shard.sumOf { path -> mods.first { it.path == path }.weight }
+        }
         assertEquals(listOf(150, 150), loads.sorted(), "both shards carry equal load")
     }
 

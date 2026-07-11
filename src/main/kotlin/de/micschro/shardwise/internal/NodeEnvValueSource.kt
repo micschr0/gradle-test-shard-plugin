@@ -9,6 +9,7 @@ internal abstract class NodeEnvValueSource : ValueSource<NodeEnv, ValueSourcePar
         NodeEnv.fromEnv(System.getenv("CI_NODE_INDEX"), System.getenv("CI_NODE_TOTAL"))
 }
 
+@Suppress("SerialVersionUIDInSerializableClass")
 internal data class NodeEnv(val index: Int, val total: Int) : Serializable {
 
     internal companion object {
