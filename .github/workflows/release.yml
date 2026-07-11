@@ -12,7 +12,6 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish plugin
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -27,12 +26,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # A release must never build from a cache that PR branches can write to
-      # (cache poisoning). Cold builds cost a few minutes; a poisoned artifact
-      # on the Plugin Portal is unrecoverable.
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
-        with:
-          cache-disabled: true
 
       - run: ./gradlew check
 

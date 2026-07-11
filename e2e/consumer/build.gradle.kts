@@ -1,7 +1,7 @@
 import de.micschro.shardwise.PlanDetail
 
 plugins {
-    id("de.micschro.shardwise") version "0.2.0"   // MUST match root build.gradle.kts version
+    id("de.micschro.shardwise") version "0.1.0"   // MUST match root build.gradle.kts version
 }
 
 // Driven by the e2e pipeline (see e2e/scripts/run-node.sh) so one fixture serves

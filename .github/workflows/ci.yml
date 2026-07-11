@@ -24,7 +24,6 @@ env:
 jobs:
   # ── fast feedback: unit + functional + apiCheck (~30s) ──────────────────
   check:
-    name: Check
     runs-on: ubuntu-latest
     permissions:
       contents: read
