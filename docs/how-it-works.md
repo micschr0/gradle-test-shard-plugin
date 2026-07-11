@@ -1,19 +1,28 @@
 # How Shardwise works
 
-This document explains the design behind the plugin: the planning algorithm, the
-guarantees it makes, and why the Gradle integration looks the way it does. For
-consumer-facing usage see the [README](../README.md).
+Shardwise distributes weighted test modules across N parallel CI nodes using Greedy-LPT (Longest Processing Time) bin-packing, producing a deterministic plan that keeps every module running on exactly one node. After reading this, you can predict which module lands where and why the planner errs toward running, never skipping, when in doubt.
 
+## Contents
+
+- [The problem](#the-problem)
+- [The algorithm: Greedy-LPT](#the-algorithm-greedy-lpt)
+- [The two invariants](#the-two-invariants)
+  - [1. Coverage beats balance](#1-coverage-beats-balance)
+  - [2. All nodes derive the identical plan](#2-all-nodes-derive-the-identical-plan)
+- [Architecture: pure core, thin glue](#architecture-pure-core-thin-glue)
+- [Configuration-cache safety](#configuration-cache-safety)
+- [Why \`onlyIf\` and not task exclusion?](#why-onlyif-and-not-task-exclusion)
+- [Observing the plan](#observing-the-plan)
+- [Scope and known limitations](#scope-and-known-limitations)
+
+
+> **Glossary.** In this explanation: **module** means a Gradle subproject, **CI node** is the runner that executes a job, **plan** is the deterministic shard assignment (not "shard plan" or "partition"), and **weights** are relative timing values per module. See the [configuration reference](configuration.md) for the canonical DSL terms.
+>
 ## The problem
 
-The slowest CI node determines a multi-module build's total test time. Naive
-sharding (`hash(module) % N`, alphabetical round-robin) distributes module *counts*
-evenly, but module test *durations* can span three orders of magnitude — one node
-gets the 20-minute service suite, another gets thirty 2-second domain modules.
+The slowest CI node determines a multi-module build's total test time. Naive sharding (`hash(module) % N`, alphabetical round-robin) distributes module *counts* evenly, but module test *durations* can span three orders of magnitude — one node gets the 20-minute service suite, another gets thirty 2-second domain modules.
 
-Shardwise instead solves a classic scheduling problem: distribute weighted jobs
-(modules) across identical machines (CI nodes) so the slowest machine finishes as early
-as possible (minimum makespan).
+Shardwise instead solves a classic scheduling problem: distribute weighted jobs (modules) across identical machines (CI nodes) so the slowest machine finishes as early as possible (minimum makespan).
 
 ```text
 count-based round-robin                weight-based LPT
@@ -23,10 +32,9 @@ node 3  ████                   4 min   node 3  ████████�
         ▲ wall time: 20 min                    ▲ wall time: 12 min
 ```
 
-## The algorithm: Greedy LPT
+## The algorithm: Greedy-LPT
 
-Exact makespan minimisation is NP-hard; Longest Processing Time (LPT) approximates it
-within 4/3 and can be made deterministic:
+Exact makespan minimisation is NP-hard; Longest Processing Time (LPT) approximates it within 4/3 and can be made deterministic:
 
 1. Sort modules by weight, descending; break ties by module path, ascending.
 2. Assign each module to the currently lightest node.
@@ -45,40 +53,21 @@ step  module  weight │ node 1   node 2   node 3
 final load            │   120      100       90    makespan: 120
 ```
 
-Ties (step 5: node 2 and node 3 both at 90) always resolve to the lowest node number,
-which keeps the plan deterministic.
+Ties (step 5: node 2 and node 3 both at 90) always resolve to the lowest node number, which keeps the plan deterministic.
 
-The guarantee: the resulting makespan is at most 4/3 of the theoretical optimum
-(Graham, 1969). The unit test
-`greedy LPT keeps makespan within four thirds of optimum` pins the bound.
+The guarantee: the resulting makespan is at most 4/3 of the theoretical optimum (Graham, 1969). The unit test `greedy LPT keeps makespan within four thirds of optimum` pins the bound.
 
-Weights are *relative*, not absolute: milliseconds from JUnit XML work, but so does any
-consistent unit. Missing weights fall back to `defaultWeight`, which only skews balance
-— never coverage (see *Coverage beats balance* below).
+Weights are *relative*, not absolute: milliseconds from JUnit XML work, but so does any consistent unit. Missing weights fall back to `defaultWeight`, which only skews balance — never coverage (see *Coverage beats balance* below).
 
 ## The two invariants
 
-Everything else in the codebase serves these two properties:
+Everything else in the codebase serves these two properties.
 
 ### 1. Coverage beats balance
 
-A module must never be silently skipped on *every* node. The failure modes are ranked:
-duplicated test execution costs redundant CI runtime; a *lost* module makes CI report
-success for an untested, possibly failing module. Every default therefore errs toward
-running:
+A module must never be silently skipped on *every* node. The failure modes are ranked: duplicated test execution costs redundant CI runtime; a *lost* module makes CI report success for an untested, possibly failing module. Every default therefore errs toward running.
 
-- A module absent from the plan runs on **all** nodes (`ShardPlan.runsOn`).
-- A task name without a plan runs everywhere (`ShardBuildService.runsOnThisNode`).
-- Test tasks not listed in `taskNames` are never touched.
-- `CI_NODE_TOTAL <= 1` disables skipping entirely.
-- Malformed weight entries are ignored (module falls back to `defaultWeight`);
-  stale weights shift load but never lose tests.
-- Invalid CI variables (`CI_NODE_INDEX=0`, garbage, out of range, one of the two
-  missing) **fail the build** instead of being clamped or guessed: a silently
-  mis-parsed index would skip one node's assigned modules on every node.
-
-The decision path every `Test` task takes at execution time; every uncertain branch
-ends in *run*:
+Every `Test` task takes this decision path at execution time; every uncertain branch ends in *run*:
 
 ```mermaid
 flowchart TD
@@ -98,23 +87,27 @@ flowchart TD
     A -- "no" --> SKIP(["SKIPPED here —<br/>runs on exactly one other node"])
 ```
 
+A module absent from the plan runs on all nodes (`ShardPlan.runsOn`). A task name without a plan runs everywhere (`ShardBuildService.runsOnThisNode`). Test tasks not listed in `taskNames` are never touched.
+
+### Interaction with edge cases
+
+Three rules govern what happens when the inputs are unusual or broken:
+
+- **CI_NODE_TOTAL ≤ 1 disables skipping entirely.** With only one target, every assigned module runs there — the plan still exists (it is deterministic and identical across imaginary peers), but no task evaluates to SKIPPED. This keeps local development and single-node CI identical to a multi-node run.
+- **Malformed weight entries are ignored.** A non-numeric weight entry causes the module to fall back to `defaultWeight`. Stale weights shift load balance but never lose a test from coverage.
+- **Invalid CI variables fail the build.** A `CI_NODE_INDEX` of 0, an invalid value, an out-of-range index, or a missing variable triggers a build failure instead of a silent guess: a mis-parsed index would skip one node's assigned modules on every node.
+
 ### 2. All nodes derive the identical plan
 
-There is no coordinator. Each of the N parallel nodes independently computes the full
-plan and picks its own slice. The partition is correct only if every node produces the
-identical plan, which requires:
+There is no coordinator. Each of the N parallel nodes independently computes the full plan and picks its own slice. The plan is correct only if every node produces the identical plan, which requires:
 
-- **Deterministic planning** — the LPT sort is total (weight desc, then path asc), so
-  the plan is invariant under module discovery order. The unit test
-  `plan is invariant under input permutation` verifies this with shuffled inputs.
-- **Identical inputs** — the weights file must be identical on all nodes of a run:
-  committed to git or distributed as a single pipeline artifact. A CI cache read
-  independently by each node is unsafe: caches may serve different states to
-  different runners (see [self-updating-weights.md](self-updating-weights.md)).
+- **Deterministic planning** — the LPT sort is total (weight desc, then path asc), so the plan is invariant under module discovery order. The unit test `plan is invariant under input permutation` verifies this with shuffled inputs.
+- **Identical inputs** — the weights file must be identical on all nodes of a run: committed to git or distributed as a single pipeline artifact. A CI cache read independently by each node is unsafe: caches may serve different states to different runners (see [self-updating-weights.md](self-updating-weights.md)).
 
 ## Architecture: pure core, thin glue
 
-```
+CC = configuration cache.
+```text
 src/main/kotlin/de/micschro/shardwise/
 ├── ShardwisePlugin.kt            Gradle glue (public)
 ├── ShardwiseExtension.kt         configuration surface (public)
@@ -125,8 +118,7 @@ src/main/kotlin/de/micschro/shardwise/
     └── NodeEnvValueSource.kt     Gradle: CC-safe env access, validation
 ```
 
-The planning layer (`TestShardPlanner`, `TestWeights`) has **no Gradle types** and is
-tested with plain unit tests. How the pieces interact:
+The planning layer (`TestShardPlanner`, `TestWeights`) has **no Gradle types** and is tested with plain unit tests. The diagram below shows how the pieces interact:
 
 ```mermaid
 flowchart TB
@@ -135,7 +127,7 @@ flowchart TB
         PLG["ShardwisePlugin"]
         VS["NodeEnvValueSource<br/>(only System.getenv access)"]
         BS["ShardBuildService<br/>(one lazy plan per build)"]
-        TT["every matching Test task<br/>onlyIf 'assigned to this shard'"]
+        TT["every matching Test task<br/>onlyIf 'Shardwise node N/M'"]
     end
     subgraph pure["Pure core — no Gradle types"]
         TW["TestWeights<br/>parse weights file"]
@@ -153,29 +145,17 @@ flowchart TB
 
 The glue layer wires it into Gradle:
 
-- `ShardwisePlugin` registers the extension, collects which modules own which test
-  tasks, and attaches an `onlyIf` predicate to every matching `Test` task.
-- `ShardBuildService` is a shared `BuildService`: the plan is computed once per build
-  (lazily, on first `onlyIf` evaluation) and shared by all test tasks.
+- `ShardwisePlugin` registers the extension, collects which modules own which test tasks, and attaches an `onlyIf` predicate to every matching `Test` task.
+- `ShardBuildService` is a shared `BuildService`: the plan is computed once per build (lazily, on first `onlyIf` evaluation) and shared by all test tasks.
 - `NodeEnvValueSource` is the only place that touches `System.getenv`.
 
 ## Configuration-cache safety
 
-The plugin is designed for Gradle's configuration cache (CC), which serialises the
-task graph and skips the configuration phase on subsequent runs. The constraints:
+The plugin is designed for Gradle's configuration cache (CC), which serialises the task graph and skips the configuration phase on subsequent runs. The constraints:
 
-- **No `afterEvaluate`/`projectsEvaluated`** — all wiring is lazy (`configureEach`,
-  providers). The module/task discovery runs inside a `Provider` that the build
-  service evaluates at execution time, which is also why lazily registered tasks
-  (e.g. `testing { suites { ... } }`) are captured correctly.
-- **Env access only through a `ValueSource`** — Gradle tracks `NodeEnvValueSource` as a
-  CC input, so a cached entry is transparently invalidated when `CI_NODE_INDEX` or
-  `CI_NODE_TOTAL` change between runs. Reading `System.getenv` directly at
-  configuration time would bake node 1's plan into the cache entry for every node.
-- **The weights file is read into a `Provider<String>`** at configuration time, making
-  the file content itself a CC input: edit the file, and the next run recomputes the
-  plan (covered by the functional test
-  `weights file changes take effect across configuration cache runs`).
+- **No `afterEvaluate`/`projectsEvaluated`** — all wiring is lazy (`configureEach`, providers). The module/task discovery runs inside a `Provider` that the build service evaluates at execution time, which is also why lazily registered tasks (e.g. `testing { suites { ... } }`) are captured correctly.
+- **Env access only through a `ValueSource`** — Gradle tracks `NodeEnvValueSource` as a CC input, so a cached entry is transparently invalidated when `CI_NODE_INDEX` or `CI_NODE_TOTAL` change between runs. Reading `System.getenv` directly at configuration time would bake node 1's plan into the cache entry for every node.
+- **The weights file is read into a `Provider<String>`** at configuration time, making the file content itself a CC input: edit the file, and the next run recomputes the plan (covered by the functional test `weights file changes take effect across configuration cache runs`).
 
 A build on a CI node with a warm configuration cache:
 
@@ -197,8 +177,7 @@ sequenceDiagram
     BS-->>T: true → execute (elsewhere: false → SKIPPED)
 ```
 
-Every functional test asserts that CC actually engages; treat a CC regression as a
-build-breaking bug.
+Every functional test asserts that CC engages; treat a CC regression as a build-breaking bug.
 
 ## Why `onlyIf` and not task exclusion?
 
@@ -206,42 +185,30 @@ Skipping via `onlyIf` keeps the task in the graph with outcome `SKIPPED`:
 
 - The decision happens at execution time, after CC restore, per node.
 - Task dependencies stay intact — `check` still depends on `test` everywhere.
-- CI reports show the module was *deliberately* skipped on this node rather than
-  silently absent.
+- CI reports show the module was *deliberately* skipped on this node rather than silently absent.
 
-The trade-off: dependencies of a skipped test task (e.g. `testClasses`) may still run.
-That costs some compilation time on foreign nodes but keeps the mechanism free of
-graph rewiring.
+The trade-off: dependencies of a skipped test task (e.g. `testClasses`) may still run. That costs some compilation time on foreign nodes but keeps the mechanism free of graph rewiring.
 
 ## Observing the plan
 
 The plugin has no report task; the assignment is visible through task outcomes:
 
 - Skipped modules show `SKIPPED` in the console output (see the sample in the README).
-- `./gradlew test --info` prints the reason:
-  `Skipping task ':mod-a:test' as task onlyIf 'assigned to this shard' is false.`
-- To inspect the full partition, run the build once per node index with
-  `CI_NODE_INDEX=1..N` and compare which test tasks execute.
+- `./gradlew test --info` prints the reason: `Skipping task ':mod-a:test' as task onlyIf 'Shardwise node 2/3' is false.` (the reason shows the actual node and total).
+- Inspecting the full plan means running the build once per node index — setting `CI_NODE_INDEX` to each value `1..N` in turn and comparing which test tasks execute.
 
 ## Scope and known limitations
 
-- **Module granularity.** Shardwise shards whole modules, not individual test classes.
-  If one module dominates total test time, split the module (or shard its classes with
-  a separate in-module tool); no bin-packing can help a single indivisible 30-minute job.
-- **Only `Test` tasks.** `taskNames` matches `org.gradle.api.tasks.testing.Test` tasks
-  by name. Lifecycle tasks (`build`, `check`) are empty containers — skipping the
-  container would not skip the work it depends on, so generalising to arbitrary task
-  types needs validation first (planned for a later release).
-- **Composite builds.** `includeBuild` builds have their own `Gradle` instance; their
-  test tasks are not seen by the plugin and simply run on every node (coverage is
-  preserved, work is duplicated).
-- **Android.** Variant test tasks (`testDebugUnitTest`, …) are `Test` tasks and can be
-  listed in `taskNames` explicitly; there is no variant-aware matching.
-- **Coverage tools (JaCoCo).** Sharding itself is unaffected — JaCoCo instruments
-  existing `Test` tasks. But each module's execution data (`.exec`) is produced only on
-  the node that ran it; on the other nodes `jacocoTestReport` has no execution data and
-  is skipped. Aggregated reports and threshold checks
-  (`jacocoTestCoverageVerification`, SonarQube gates) must therefore run in a collect
-  job that merges the execution data or XML reports of *all* nodes — per-node checks
-  would see partial coverage and fail. Use the same artifact pattern as for JUnit XML
-  results.
+- **Module granularity.** Shardwise shards whole modules, not individual test classes. If one module dominates total test time, split the module (or shard its classes with a separate in-module tool); no bin-packing can help a single indivisible 30-minute job.
+- **Only `Test` tasks.** `taskNames` matches `org.gradle.api.tasks.testing.Test` tasks by name. Lifecycle tasks (`build`, `check`) are empty containers — skipping the container would not skip the work it depends on, so generalising to arbitrary task types needs validation first (planned for a later release).
+- **Composite builds.** `includeBuild` builds have their own `Gradle` instance; their test tasks are not seen by the plugin and simply run on every node (coverage is preserved, work is duplicated).
+- **Android.** Variant test tasks (`testDebugUnitTest`, …) are `Test` tasks and can be listed in `taskNames` explicitly; there is no variant-aware matching.
+- **Coverage tools (JaCoCo).** Sharding itself is unaffected — JaCoCo
+  instruments existing `Test` tasks. The catch is *where* the data lands:
+  - Each module's execution data (`.exec`) is produced only on the node that ran
+    it. On the other nodes `jacocoTestReport` has no data and is skipped.
+  - Aggregated reports and threshold checks (`jacocoTestCoverageVerification`,
+    SonarQube gates) must run in a **collect job** that merges the `.exec` (or
+    XML) data of *all* nodes — a per-node check sees partial coverage and fails.
+  - Use the same artifact pattern as for JUnit XML results. See
+    [troubleshooting](troubleshooting.md) for a ready-made merge script.

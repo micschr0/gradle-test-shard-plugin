@@ -1,17 +1,22 @@
 plugins {
     id("java-gradle-plugin")
-    kotlin("jvm") version "2.4.0"
-    id("io.gitlab.arturbosch.detekt") version "1.23.8"
-    id("org.jetbrains.kotlinx.binary-compatibility-validator") version "0.18.1"
-    id("com.gradle.plugin-publish") version "2.1.1"
+    alias(libs.plugins.kotlinJvm)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.binaryCompatibilityValidator)
+    alias(libs.plugins.pluginPublish)
+    alias(libs.plugins.kover)
 }
 
 group = "de.micschro"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     explicitApi()
     jvmToolchain(17)
+    compilerOptions {
+        freeCompilerArgs.addAll("-jvm-default=enable", "-Xjsr305=strict")
+    }
 }
 
 // java-gradle-plugin puts gradleApi() on the api configuration → leaks downstream.
@@ -26,7 +31,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("dev.gradleplugins:gradle-api:8.5")
+    compileOnly("dev.gradleplugins:gradle-api:8.11")
     // Only for ProjectBuilder tests; does not leak downstream (test configurations are not published).
     testImplementation(gradleApi())
     testImplementation(platform("org.junit:junit-bom:6.1.1"))
@@ -34,34 +39,38 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-val functionalTest: SourceSet = sourceSets.create("functionalTest")
-configurations[functionalTest.implementationConfigurationName]
-    .extendsFrom(configurations.testImplementation.get())
-dependencies {
-    "functionalTestImplementation"(gradleTestKit())
-    "functionalTestRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+// Functional (TestKit) suite: real multi-module builds against the published plugin id.
+// java-gradle-plugin applies jvm-test-suite, auto-creating the functionalTest source set
+// and Test task. Custom suites are NOT auto-wired into `check`, so that is added below.
+testing {
+    suites {
+        register<JvmTestSuite>("functionalTest") {
+            useJUnitJupiter("6.1.1")
+            dependencies {
+                implementation(gradleTestKit())
+            }
+        }
+    }
 }
 
 gradlePlugin {
     website = "https://github.com/micschr0/gradle-test-shard-plugin"
     vcsUrl = "https://github.com/micschr0/gradle-test-shard-plugin"
-    testSourceSets(functionalTest)
+    testSourceSets(sourceSets.getByName("functionalTest"))
     plugins {
         create("shardwise") {
             id = "de.micschro.shardwise"
             implementationClass = "de.micschro.shardwise.ShardwisePlugin"
             displayName = "Shardwise"
-            description = "Shards a multi-module build's test tasks across parallel CI nodes via Greedy-LPT."
-            tags = listOf("ci", "testing", "sharding", "parallel", "gitlab")
+            description = "Shards a multi-module build's test tasks across parallel CI nodes via Greedy-LPT. Requires Gradle 8.11+ and Java 17+."
+            tags = listOf("ci", "testing", "sharding", "parallel", "build")
         }
     }
 }
 
-val functionalTestTask = tasks.register<Test>("functionalTest") {
-    testClassesDirs = functionalTest.output.classesDirs
-    classpath = functionalTest.runtimeClasspath
-}
-tasks.named("check") { dependsOn(functionalTestTask) }
+// Custom JVM test suites are not auto-wired into `check` — wire functionalTest explicitly.
+tasks.named("check") { dependsOn(tasks.named("functionalTest")) }
+
 tasks.withType<Test>().configureEach { useJUnitPlatform() }
 
 tasks.validatePlugins {
@@ -74,4 +83,17 @@ detekt {
     config.from(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
 }
 
-tasks.named("check") { dependsOn(tasks.named("detekt")) }
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(80)
+            }
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("detekt"))
+    dependsOn(tasks.named("ktlintCheck"))
+}

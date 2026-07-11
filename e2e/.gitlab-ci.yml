@@ -1,0 +1,72 @@
+# Shardwise end-to-end pipeline — run via `e2e/run.sh`, or under glci in CI.
+#
+# Every job runs in the Gradle image. The image is set on `default:` rather than
+# top-level `image:`, because glci resolves the default image but does not apply
+# the top-level key — jobs would silently fall back to alpine, which has no JDK
+# and no Gradle, and every script would die with "./gradlew: not found".
+#
+# Every job gets its OWN container with its OWN checkout — nothing in the working
+# tree survives a stage boundary. So everything a later stage needs (the published
+# plugin, the node logs, the plan dumps) has to travel as `artifacts:`.
+
+stages:
+  - build
+  - test
+  - verify
+
+variables:
+  # verify.sh takes the node count as an INPUT — it must never infer it from the
+  # logs it is checking. Keep this in lockstep with shard-test's `parallel:`.
+  SHARDWISE_E2E_NODE_TOTAL: "3"
+
+default:
+  image: gradle:8.11-jdk17
+  before_script:
+    # Point mavenLocal into the project tree so the plugin published in the build
+    # stage is still visible to the consumer in the test stage. Setting
+    # maven.repo.local beats symlinking ~/.m2 — it depends on neither HOME nor the
+    # image's user, and in the official gradle images ~/.gradle is itself a symlink.
+    - mkdir -p "$CI_PROJECT_DIR/build/maven-repo"
+    - export GRADLE_OPTS="-Dmaven.repo.local=$CI_PROJECT_DIR/build/maven-repo ${GRADLE_OPTS:-}"
+
+publish-plugin:
+  stage: build
+  script:
+    - ./gradlew publishToMavenLocal
+    # Assert consumer version matches published plugin version (drift check)
+    - root_ver=$(grep -Po '^version\s*=\s*"\K[^"]+' build.gradle.kts)
+    - consumer_ver=$(grep -Po 'version\s+"\K[^"]+' e2e/consumer/build.gradle.kts)
+    - '[[ "$root_ver" = "$consumer_ver" ]] || { echo "FAIL: consumer version $consumer_ver != root version $root_ver — update e2e/consumer/build.gradle.kts"; exit 1; }'
+  artifacts:
+    paths:
+      - build/maven-repo/
+    expire_in: 1 day
+
+shard-test:
+  stage: test
+  parallel: 3 # → CI_NODE_TOTAL=3, CI_NODE_INDEX=1..3
+  dependencies:
+    - publish-plugin
+  script:
+    - bash e2e/scripts/run-node.sh
+  artifacts:
+    # `when: always` is load-bearing: the scenario that makes a test fail on purpose
+    # is exactly the run whose logs prove *why* it failed. Dropping the artifacts of
+    # a red job would leave that scenario unable to tell "the right test failed" from
+    # "the image was broken".
+    when: always
+    paths:
+      - e2e/build/logs/
+      - e2e/build/plans/
+    expire_in: 1 day
+
+verify-distribution:
+  stage: verify
+  # No `dependencies:` on purpose — that key matches job names EXACTLY, and a
+  # `parallel:` job expands to "shard-test 1/N" … "shard-test N/N", so the bare
+  # name `shard-test` would match nothing and this job would silently verify an
+  # empty log dir. Naming the expansions instead would hard-code N, which every
+  # scenario varies. The default (all artifacts from all earlier stages) picks up
+  # every node's log and plan whatever N is; the extra maven-repo is harmless.
+  script:
+    - bash e2e/scripts/verify.sh

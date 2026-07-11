@@ -2,3 +2,14 @@
 build/
 .kotlin/
 .idea/
+e2e/build/
+.gitlab-ci-local/
+.glci/
+.claude/
+.gradle-cache/
+.glciconfig.toml
+# Local AI runtime state
+.atl/
+.codegraph/
+# Property-test run database (jqwik); local-only, regen on test failure
+.jqwik-database

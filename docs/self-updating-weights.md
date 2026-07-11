@@ -1,45 +1,73 @@
-# Generating and updating test weights
+# Self-updating test weights
 
-The weights file maps module paths to relative durations (`modulePath=millis`, see the
-[README](../README.md#weights-file)). This document covers generating it from JUnit XML
-timings and keeping it fresh automatically.
+This page explains how to generate a `test-weights.properties` file from JUnit
+XML timings and refresh it automatically so every parallel node in a CI pipeline
+reads the same file.
 
-One requirement governs every setup on this page: **all parallel nodes of a run must
-read the identical weights file**, or their plans diverge and a module can be skipped
-on every node. Committed files and pipeline artifacts guarantee this. A CI cache read
-independently by each node is unsafe: caches may serve different states to different
-runners. Use caches only as transport *between* runs.
+## Contents
 
-## Generating the file
+- [Goal](#goal)
+- [Prerequisites](#prerequisites)
+- [Step 1 — Generate the weights file](#step-1--generate-the-weights-file)
+- [Step 2 — Commit the initial file](#step-2--commit-the-initial-file)
+- [Step 3 — Choose a refresh strategy](#step-3--choose-a-refresh-strategy)
+- [Step 4 — Verify](#step-4--verify)
 
-A full test run leaves per-module timings in the JUnit XML results. To aggregate them
-(requires Python 3, standard library only):
 
-```python
-# generate-test-weights.py — run from the repo root after `./gradlew test`
-import glob, xml.etree.ElementTree as ET
+## Goal
 
-weights = {}
-for f in glob.glob('**/build/test-results/test/TEST-*.xml', recursive=True):
-    module = f.split('/build/test-results/')[0]
-    if module == f:  # result lives directly under build/ → root project, key '.'
-        module = '.'
-    weights[module] = weights.get(module, 0) + float(ET.parse(f).getroot().get('time', '0'))
+Maintain a weights file whose content is identical across every node of a
+parallel run. When nodes read different weights, their plans diverge,
+and a module may be skipped on every node.
 
-with open('test-weights.properties', 'w') as out:
-    out.write('# generated from junit xml timings (millis)\n')
-    for m, t in sorted(weights.items(), key=lambda kv: -kv[1]):
-        out.write(f'{m}={int(t * 1000)}\n')
+## Prerequisites
+
+- Gradle (the plugin bundles the aggregator task — no Python required)
+- A passing `./gradlew test` run that produces JUnit XML results in
+  `**/build/test-results/test/`
+
+## Step 1 — Generate the weights file
+
+Run a full test suite, then aggregate the per-module timings with the bundled
+`generateTestWeights` task. Run it from the repo root:
+
+```bash
+./gradlew test --no-build-cache
+./gradlew generateTestWeights
 ```
 
-## Keeping weights fresh
+The first command populates `**/build/test-results/test/TEST-*.xml`. The
+second walks every `Test` task output declared in `taskNames` (default:
+`test`), sums the `time=` attribute per module, and writes a sorted
+ISO-8859-1 properties file (millisecond totals, descending by weight).
 
-Two automation variants. Stale weights shift balance but never lose tests, so neither
-variant is load-bearing for correctness — refresh frequency only affects CI time.
+The output file maps each module path to its total duration in milliseconds:
 
-### Variant A — scheduled job commits the file
+```properties
+services/checkout=12450
+common/domain=8300
+common/api=2100
+```
 
-Every distribution stays reproducible from the git history.
+## Step 2 — Commit the initial file
+
+Commit the generated `test-weights.properties` to your repository. A committed
+file is the simplest transport: every checkout delivers identical content to
+every node, and the git history makes each commit's plan reproducible.
+
+If you prefer not to commit, set up a pipeline artifact that a prepare job
+produces once and every parallel node consumes. See Variant B in Step 3 for
+that setup.
+
+## Step 3 — Choose a refresh strategy
+
+Stale weights shift balance but never lose tests, so neither variant is
+load-bearing for correctness. Refresh frequency affects CI time, not coverage.
+
+### Variant A — Scheduled job commits the file
+
+A scheduled pipeline runs a full `--no-build-cache` test, regenerates the
+weights, and opens a merge request only when the file changes.
 
 ```mermaid
 flowchart LR
@@ -47,14 +75,16 @@ flowchart LR
     REPO -. "identical input<br/>for every node" .-> RUNS["day-to-day CI runs"]
 ```
 
+GitLab CI example:
+
 ```yaml
 # .gitlab-ci.yml — scheduled pipeline, e.g. weekly
 update-test-weights:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - ./gradlew test --no-build-cache   # force real execution; see build-cache note below
-    - python3 generate-test-weights.py
+    - ./gradlew test --no-build-cache
+    - ./gradlew generateTestWeights
     - |
       if ! git diff --quiet test-weights.properties; then
         git add test-weights.properties
@@ -64,6 +94,8 @@ update-test-weights:
           -o merge_request.create -o merge_request.target=$CI_DEFAULT_BRANCH
       fi
 ```
+
+GitHub Actions example:
 
 ```yaml
 # .github/workflows/update-test-weights.yml
@@ -77,8 +109,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
-      - run: ./gradlew test --no-build-cache   # force real execution; see build-cache note below
-      - run: python3 generate-test-weights.py
+      - run: ./gradlew test --no-build-cache
+      - run: ./gradlew generateTestWeights
       - uses: peter-evans/create-pull-request@v6
         with:
           branch: ci/update-test-weights
@@ -86,19 +118,19 @@ jobs:
           commit-message: Update test weights
 ```
 
-### Variant B — every run feeds the next
+### Variant B — Every run feeds the next
 
-A prepare job snapshots the previous run's weights into an artifact (identical for all
-nodes), a collect job aggregates fresh timings for the next run. Fully automatic, but a
-given commit no longer shards reproducibly — relevant when a historical run's node
-assignment must be reconstructed, e.g. while debugging a failure that occurred on one
-node.
+A prepare job snapshots the previous run's weights into an artifact (identical
+for all nodes); a collect job aggregates fresh timings for the next run. The
+process is automatic: a given commit no longer shards reproducibly.
 
 ```mermaid
 flowchart LR
-    PREP["prepare job:<br/>snapshot previous weights<br/>as one artifact"] --> N1["test · node 1..N"] --> COLL["collect job:<br/>aggregate fresh timings"] --> CACHE[("CI cache")]
+    PREP["prepare job:<br/>snapshot previous weights<br/>as one artifact"] --> N1["test · node 1..N"] --> COLL["collect job:<br/>aggregate fresh timings"] --> CACHE[("CI cache or artifact")]
     CACHE -. "next run" .-> PREP
 ```
+
+GitLab CI example:
 
 ```yaml
 # .gitlab-ci.yml
@@ -124,12 +156,14 @@ test-backend:
 
 collect-weights:
   stage: collect
-  needs: [test-backend]          # downloads artifacts of all parallel nodes
+  needs: [test-backend]
   cache: { key: shardwise-weights, paths: [.shardwise/], policy: push }
   script:
-    - python3 generate-test-weights.py
+    - ./gradlew generateTestWeights
     - mkdir -p .shardwise && cp test-weights.properties .shardwise/
 ```
+
+GitHub Actions example:
 
 ```yaml
 # .github/workflows/test.yml (sketch)
@@ -139,9 +173,7 @@ jobs:
     steps:
       - uses: actions/cache/restore@v4
         with:
-          path: test-weights.properties
-          key: shardwise-weights-${{ github.run_id }}
-          restore-keys: shardwise-weights-
+          { path: test-weights.properties, key: shardwise-weights-${{ github.run_id }}, restore-keys: shardwise-weights- }
       - run: '[ -f test-weights.properties ] || echo "# none yet" > test-weights.properties'
       - uses: actions/upload-artifact@v4
         with: { name: shardwise-weights, path: test-weights.properties }
@@ -162,8 +194,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-${{ matrix.shard }}
-          path: "**/build/test-results/test/TEST-*.xml"
+          { name: test-results-${{ matrix.shard }}, path: "**/build/test-results/test/TEST-*.xml" }
 
   collect:
     needs: test
@@ -172,30 +203,38 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { pattern: "test-results-*", merge-multiple: true }
-      - run: python3 generate-test-weights.py
+      - run: ./gradlew generateTestWeights
       - uses: actions/cache/save@v4
         with:
-          path: test-weights.properties
-          key: shardwise-weights-${{ github.run_id }}
+          { path: test-weights.properties, key: shardwise-weights-${{ github.run_id }} }
 ```
 
-## Interaction with the remote build cache
+## Step 4 — Verify
 
-`FROM-CACHE` test tasks restore their JUnit XMLs *with the original timings*, so the
-generator never sees zeros — but a plan assumes every module executes, while cache hits
-cost ~0 at runtime. That skews balance (a node finishes early), never coverage.
+Confirm the weights file is identical on every node. The method depends on your
+refresh strategy:
 
-The build cache interacts differently with the two variants:
+- **Variant A (committed)** — check that `git diff --quiet test-weights.properties`
+  exits with zero on every node. If clean, every node reads the same committed
+  file.
+- **Variant B (artifacts)** — hash the weights artifact after each pipeline and
+  confirm the hash is identical across nodes. A mismatch means the prepare job
+  served different content to different runners.
 
-- **Variant A** corrects only on schedule; day-to-day pipelines just consume the
-  committed file. The `--no-build-cache` in the measuring job is there so timings come
-  from *today's CI runner* executing the tests — not from whatever machine originally
+### The build cache and verification
+
+`FROM-CACHE` test tasks restore their JUnit XMLs with the original timestamps
+and `time=` attributes. The generator sees the same values it saw after the
+original execution. This matters during verification:
+
+- The scheduled runner in **Variant A** passes `--no-build-cache` so timings
+  come from today's CI runner executing the tests, not from the machine that
   seeded the cache entry.
-- **Variant B** self-corrects on every normal pipeline, with the build cache left on.
-  A changed module misses the cache, really runs, and delivers a fresh timing; an
-  unchanged module is restored `FROM-CACHE` with its old timing — which is still valid,
-  precisely because the module didn't change. Timings refresh exactly when they could
-  go stale.
+- **Variant B** leaves the build cache on. A changed module misses the cache,
+  runs anew, and delivers a fresh timing. An unchanged module is restored
+  FROM-CACHE with its old timing — which remains valid because the module did
+  not change. Timings refresh exactly when they could go stale.
 
-Both combine well: B for continuous correction, A as an occasional full clean
-re-measurement.
+To verify your setup independently of the build cache, run one pipeline with
+`--no-build-cache` and compare the generated `test-weights.properties` against
+your baseline.

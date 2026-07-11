@@ -2,65 +2,164 @@ name: CI
 
 on:
   push:
-    branches: [master]
-    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
+    branches: [main]
+    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE"]
   pull_request:
-    branches: [master]
-    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
+    branches: [main]
+    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Per-job permissions below (deny-all top-level).
+permissions: {}
 
 env:
   GLCI_VERSION: v0.6.0
+  # SHA-256 of glci-linux-amd64 at GLCI_VERSION — recompute when bumping the version.
+  GLCI_SHA256: 13bf64e8f33363b7b6a86a6c2367446f318920afc18dbabe08e0a515383c7937
   JAVA_VERSION: "17"
 
 jobs:
   # ── fast feedback: unit + functional + apiCheck (~30s) ──────────────────
   check:
+    name: Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
 
       - name: ShellCheck
-        run: shellcheck e2e/run.sh e2e/scripts/run-node.sh e2e/scripts/verify.sh
+        run: shellcheck e2e/run.sh e2e/run-docker.sh e2e/scenarios.sh e2e/scripts/*.sh
+
+      # verify.sh is what proves the shard distribution is correct, so it gets
+      # tested itself — against synthetic logs covering every way a plan can be wrong.
+      - name: Test verify.sh
+        run: bash e2e/scripts/verify-test.sh
+
+      # The CI_NODE_* shim decides which shard a node runs. A wrong index there passes
+      # the pipeline while dropping modules, so its fail-closed behaviour is tested too.
+      - name: Test resolve-node-env.sh
+        run: bash e2e/scripts/run-node-env-test.sh
+
+      # A suite that has only ever been seen passing proves nothing. Break the
+      # plan on purpose and assert the suite goes red for every kind of break.
+      - name: Mutation-test the e2e suite
+        run: bash e2e/scripts/mutation-test.sh
+
+      # The pure planner and weights parser are testable without Docker — break
+      # them on purpose here, cheaper than the full e2e mutation suite.
+      - name: Mutation-test the pure core
+        run: bash e2e/scripts/mutation-test-core.sh
+
+      # Catch a broken pipeline definition in seconds, before the e2e jobs spend
+      # minutes discovering it. Also asserts `parallel:` still expands as expected.
+      - name: Lint the e2e pipeline
+        run: |
+          curl -fsSL --retry 3 --retry-all-errors -o /usr/local/bin/glci \
+            "https://gitlab.com/api/v4/projects/gitlab-org%2Fci-cd%2Frunner-tools%2Fglci/packages/generic/glci/$GLCI_VERSION/glci-linux-amd64"
+          echo "$GLCI_SHA256  /usr/local/bin/glci" | sha256sum -c
+          chmod +x /usr/local/bin/glci
+          glci lint --file e2e/.gitlab-ci.yml
+          glci jobs --file e2e/.gitlab-ci.yml
+
+      # The failing-test scenario stands or falls on this script: it is what proves
+      # the pipeline went red because the broken module's test failed, and not for
+      # some unrelated reason. Test it against a synthetic glci store — no Docker.
+      # Must run after the step above, which is what puts glci on PATH.
+      - name: Test glci-fetch-node-logs.sh
+        run: bash e2e/scripts/glci-fetch-node-logs-test.sh
 
       - name: actionlint
-        uses: raven-actions/actionlint@v2
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
       - run: ./gradlew check
 
-  # ── glci e2e: full GitLab pipeline via glci + Docker (~90s) ─────────────
+  # ── glci e2e: the real GitLab pipeline, one job per scenario ────────────
+  #
+  # Each scenario is a full pipeline run: publish the plugin, shard the consumer's
+  # tests across N nodes, then assert the distribution. Only what genuinely needs
+  # separate processes lives here — planner balance, weights parsing and invalid
+  # env values are covered far more cheaply by the unit and TestKit suites.
   e2e-glci:
     needs: check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: E-01
+            name: baseline distribution (N=3)
+            nodes: 3
+          - id: E-03
+            name: a failing test must fail the pipeline
+            nodes: 3
+            fail_module: mod-c
+            expect_fail: "1"
+          - id: E-06
+            name: more nodes than modules
+            nodes: 7
+          - id: E-07
+            name: a single node runs everything
+            nodes: 1
+          - id: E-08
+            name: a module absent from weights still runs
+            nodes: 3
+            weights: "mod-a=10\nmod-b=20\nmod-c=30"
+          - id: E-09
+            name: a missing weights file keeps coverage
+            nodes: 3
+            weights: missing
+          - id: E-10
+            name: stale and unknown weights entries keep coverage
+            nodes: 3
+            weights: "mod-a=10\nmod-zombie=9999\nnot/a/module=50\nmod-c=abc"
+          - id: E-14
+            name: planDetail=OFF does not disable sharding
+            nodes: 3
+            plan_detail: "OFF"
+          # The consumer runs the image's own Gradle, so this genuinely varies the
+          # version under test — the root wrapper would otherwise pin one version
+          # and make every image identical.
+          - id: E-15
+            name: a newer Gradle than the 8.11 floor
+            nodes: 3
+            image: gradle:8.14-jdk17
+    name: "e2e ${{ matrix.id }}: ${{ matrix.name }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: true
 
       - name: Cache glci binary
         id: cache-glci
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: /usr/local/bin/glci
           key: glci-${{ env.GLCI_VERSION }}-${{ runner.os }}-${{ runner.arch }}
@@ -71,16 +170,128 @@ jobs:
             "https://gitlab.com/api/v4/projects/gitlab-org%2Fci-cd%2Frunner-tools%2Fglci/packages/generic/glci/$GLCI_VERSION/glci-linux-amd64"
           chmod +x /usr/local/bin/glci
 
-      - name: Run e2e pipeline with glci
-        run: |
-          rm -rf e2e/build
-          glci run --file e2e/.gitlab-ci.yml --git-strategy none
+      # Runs on cache hit too — a poisoned cache entry must not bypass verification.
+      - name: Verify glci checksum
+        run: echo "$GLCI_SHA256  /usr/local/bin/glci" | sha256sum -c
 
-      - if: failure()
+      # glci resolves gitlab/gitlab-runner:latest unless pinned. The 19.2.0
+      # image (rolled out to :latest on 2026-07-15) hangs nondeterministically
+      # before its first trace line, killing e2e jobs via the 20-minute timeout.
+      # Pin the last known-good runner until a fixed release is verified.
+      - name: Pin gitlab-runner version for glci
+        run: |
+          printf '[runner]\ndefault_version = "19.1.1"\n' > .glciconfig.toml
+
+      # `parallel:` is fixed in .gitlab-ci.yml, so a scenario that wants a
+      # different node count rewrites that one line before running.
+      - name: Run scenario ${{ matrix.id }} with glci
+        # Step timeout below the job's 20m so a hang becomes a step *failure*
+        # and the debug step below still gets to run and dump the daemon log.
+        timeout-minutes: 15
+        env:
+          NODES: ${{ matrix.nodes }}
+          WEIGHTS: ${{ matrix.weights }}
+          PLAN_DETAIL: ${{ matrix.plan_detail }}
+          FAIL_MODULE: ${{ matrix.fail_module }}
+          EXPECT_FAIL: ${{ matrix.expect_fail }}
+          SCENARIO_IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          rm -rf e2e/build
+
+          sed -i "s/^  parallel: .*/  parallel: $NODES/" e2e/.gitlab-ci.yml
+          sed -i "s/^  SHARDWISE_E2E_NODE_TOTAL: .*/  SHARDWISE_E2E_NODE_TOTAL: \"$NODES\"/" e2e/.gitlab-ci.yml
+
+          # Always pass --image. glci resolves its *default* image and does not
+          # apply the file's top-level `image:` key, so without this every job
+          # silently runs on alpine — no JDK, no Gradle, "./gradlew: not found".
+          #
+          # Leave --git-strategy at its default (clone): `none` hands the job an
+          # EMPTY project dir, so there is no ./gradlew to run. The default --dirty
+          # is what carries the sed-patched .gitlab-ci.yml above into the clone.
+          args=(run --file e2e/.gitlab-ci.yml)
+          args+=(--image "${SCENARIO_IMAGE:-gradle:8.11-jdk17}")
+          args+=(--env "SHARDWISE_E2E_NODE_TOTAL=$NODES")
+          [[ -n "$WEIGHTS" ]]     && args+=(--env "SHARDWISE_E2E_WEIGHTS=$WEIGHTS")
+          [[ -n "$PLAN_DETAIL" ]] && args+=(--env "SHARDWISE_E2E_PLAN_DETAIL=$PLAN_DETAIL")
+          [[ -n "$FAIL_MODULE" ]] && args+=(--env "SHARDWISE_E2E_FAIL_MODULE=$FAIL_MODULE")
+
+          # A scenario meant to fail must fail for the RIGHT reason. A pipeline that
+          # dies because the image has no JDK also "fails" — and would pass this
+          # check while proving nothing. So require evidence the failure came from
+          # the test we broke: the module must have actually run and reported a
+          # failing test.
+          if [[ "$EXPECT_FAIL" == "1" ]]; then
+            if glci "${args[@]}" | tee /tmp/glci.log; then
+              echo "FAIL: pipeline passed but the scenario expects it to fail"
+              exit 1
+            fi
+            # The nodes ran in their own containers, so their output is in glci's
+            # history store, not in this working tree. Pull each node's trace before
+            # looking for the evidence — and treat "no logs" as a failure, never as a
+            # pass. Traces, not artifacts: glci will not return the artifact of a red
+            # job (see glci-fetch-node-logs.sh), and the red node is the one that
+            # holds the proof. Search across ALL nodes: the planner decides which node
+            # gets $FAIL_MODULE, so the failing node's index is not fixed.
+            bash e2e/scripts/glci-fetch-node-logs.sh "$NODES" /tmp/glci-node-logs
+            if ! grep -qrE "^> Task :$FAIL_MODULE:test FAILED" /tmp/glci-node-logs; then
+              echo "FAIL: the pipeline failed, but not because $FAIL_MODULE's test failed."
+              echo "      Something else broke — this scenario proves nothing as it stands."
+              exit 1
+            fi
+            echo "OK: the pipeline failed because $FAIL_MODULE's test failed, as required"
+          else
+            glci "${args[@]}"
+          fi
+
+      # failure() alone never fires on a timeout: a timed-out *job* is
+      # cancelled, not failed. The step timeout above turns hangs into
+      # failures, and cancelled() covers a hard job-level cancel.
+      - if: failure() || cancelled()
+        env:
+          NODES: ${{ matrix.nodes }}
         run: |
           echo "=== glci daemon log ==="
           cat ~/.glci/daemon.log || true
-          echo "=== e2e build logs ==="
-          cat e2e/build/logs/node-*.log 2>/dev/null || echo "(no node logs)"
-          echo "=== docker info ==="
+          echo "=== glci home ==="
+          ls -la ~/.glci/ 2>/dev/null || true
+          echo "=== container logs ==="
+          for c in $(docker ps -aq 2>/dev/null); do
+            echo "--- container $c ---"
+            docker logs "$c" 2>&1 | tail -50 || true
+          done
+          echo "=== e2e node logs ==="
+          # Same story as above: the output lives in glci's history store, not on disk
+          # here. Dump the TRACES — a failed node has no reachable artifact, and its
+          # log is the one you most want to see when debugging a red pipeline.
+          bash e2e/scripts/glci-fetch-node-logs.sh "$NODES" /tmp/glci-debug-logs \
+            && for f in /tmp/glci-debug-logs/node-*.log; do
+                 echo "--- $f ---"
+                 cat "$f"
+               done \
+            || echo "(no node logs)"
           docker ps -a 2>/dev/null || echo "(docker unavailable)"
+
+  # ── workflow-security audit ────────────────────────────────────────────
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # zizmorcore/zizmor-action: container-digest-pinned at runtime via support/versions.
+      # `annotations: true` posts findings as PR annotations instead of uploading SARIF
+      # to code scanning — works on private repos (no GitHub Advanced Security required)
+      # and on PRs from external forks (read-only GITHUB_TOKEN can't grant security-events:write).
+      # Without this, the action's default `advanced-security: true` fails the entire job
+      # on private repos and on fork PRs after going public.
+      - uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
+        with:
+          inputs: .github/workflows/*.yml
+          config: zizmor.yml
+          annotations: true

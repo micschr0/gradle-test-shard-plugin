@@ -1,0 +1,66 @@
+name: Bug report
+description: Report unexpected plugin behavior, including any suspected lost test coverage.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suspected **lost test coverage** (a module skipped on every node) is the
+        highest-severity issue this project can have — please report it even if
+        you cannot reproduce it reliably.
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: The `de.micschro.shardwise` version applied in your build.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: gradle-version
+    attributes:
+      label: Gradle version
+      description: Output of `./gradlew --version`.
+      placeholder: "8.11"
+    validations:
+      required: true
+
+  - type: input
+    id: jdk-version
+    attributes:
+      label: JDK version
+      description: Output of `java -version`.
+      placeholder: "17"
+    validations:
+      required: true
+
+  - type: textarea
+    id: shardwise-config
+    attributes:
+      label: shardwise { } configuration
+      description: The full `shardwise { }` block from your build script.
+      render: kotlin
+    validations:
+      required: true
+
+  - type: input
+    id: ci-node-values
+    attributes:
+      label: CI_NODE_INDEX / CI_NODE_TOTAL values
+      description: The exact environment values in the failing run.
+      placeholder: "CI_NODE_INDEX=1, CI_NODE_TOTAL=3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Reproducer or --info output
+      description: >
+        A minimal reproducer if possible, or the output of the failing task run
+        with `--info`.
+      render: shell
+    validations:
+      required: true
