@@ -1,5 +1,3 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
-
 # Shardwise configuration reference
 
 ## Overview
@@ -14,10 +12,10 @@ the environment. When both are unset (local runs), the plugin is a no-op.
 
 | Property | Type | Default | Description |
 |---|---|---|---|
-| `taskNames` | `SetProperty<String>` | `setOf("test")` | `Test` task names to shard; each gets its own plan |
-| `weightsFile` | `RegularFileProperty` | none (`test-weights.properties` in the root project) | Per-module timing file; without it every module uses `defaultWeight` (count-based balancing). See [Weights file format](#weights-file-format). |
+| `taskNames` | `SetProperty<String>` | `["test"]` | `Test` task names to shard; each gets its own plan |
+| `weightsFile` | `RegularFileProperty` | — | Per-module timing data: `modulePath=millis` per line |
 | `defaultWeight` | `Property<Int>` | `10` | Weight for modules not in the weights file |
-| `planDetail` | `Property<PlanDetail>` | `FULL` | How much of the plan to log at build start |
+| `planDetail` | `Property<PlanDetail>` | `FULL` | How much of the shard plan to log at build start |
 
 ## PlanDetail
 
@@ -34,8 +32,6 @@ Nothing prints when `CI_NODE_TOTAL` is unset or `1` — there is nothing to
 shard. The plugin emits colour only when stdout is a TTY, so CI logs stay free
 of escape codes. The level affects output only: it never changes which module
 runs on which shard.
-
-<a id="weights-file-format"></a>
 
 ## Weights file format
 
@@ -55,31 +51,24 @@ common/common-domain=500
   one shard
 - Stale weights shift load but never lose tests
 
-## Inspecting the plan
-
-The plugin has no report task, but it can dump the full plan a node derived to a
-file. Set the `shardwise.planDump` system property to a path:
-
-```bash
-CI_NODE_INDEX=2 CI_NODE_TOTAL=3 ./gradlew test -Dshardwise.planDump=plan.txt
-```
-
-Each sharded task's plan (node → modules) is written to that file. Run it once
-per node index and diff the output to prove all nodes agree on the plan — the
-one check task outcomes alone cannot show. Off unless the property is set.
-
 ## Examples
 
-Generate a weights file from JUnit XML timings with the bundled task:
+Generate a weights file from JUnit XML timings (run after a full `./gradlew test`):
 
-```bash
-./gradlew test --no-build-cache
-./gradlew generateTestWeights
+```python
+# generate-test-weights.py
+import glob, xml.etree.ElementTree as ET
+
+weights = {}
+for f in glob.glob('**/build/test-results/test/TEST-*.xml', recursive=True):
+    module = f.split('/build/test-results/')[0]
+    weights[module] = weights.get(module, 0) + float(ET.parse(f).getroot().get('time', '0'))
+
+with open('test-weights.properties', 'w') as out:
+    out.write('# generated from junit xml timings (millis)\n')
+    for m, t in sorted(weights.items(), key=lambda kv: -kv[1]):
+        out.write(f'{m}={int(t * 1000)}\n')
 ```
-
-The aggregator walks every `Test` task output declared in `taskNames` (default:
-`test`), sums the `time=` attribute per module, and writes a sorted ISO-8859-1
-properties file (millisecond totals, descending by weight) at the root project.
 
 For automated weight maintenance — scheduled bot commits or
 every-run-feeds-the-next — see [Self-updating weights](self-updating-weights.md).
@@ -93,6 +82,28 @@ plugin decided the module does not belong on this node; `FROM-CACHE` or
 are correct.
 
 **A module ran on zero nodes or on multiple nodes. What happened?**
-Usually the parallel nodes read different weights files. See
-[troubleshooting: ran on zero nodes](troubleshooting.md#step-2--diagnose-ran-on-zero-nodes)
-for the full diagnosis and fix.
+Parallel CI nodes reading different weights files cause this. Verify that all
+nodes receive the identical `test-weights.properties` — via a committed file, a
+pipeline artifact, or a cache populated before the parallel stage begins.
+Identical weights always produce identical plans.
+
+## Don't
+
+- Don't rely on the `planDetail` setting to change which tests run on which
+  shard — it controls logging only; `OFF` still shards exactly the same way
+- Don't commit a weights file that was generated with stale test runs — the
+  bin-packer uses whatever weights it receives and will distribute load based
+  on outdated timings until the file is regenerated
+- Don't set `defaultWeight` to a value that makes all modules equal — this
+  eliminates the benefit of weighted bin-packing and degrades to
+  count-based round-robin
+
+---
+
+Verification:
+[ ] BLUF — outcome in first 2 sentences
+[ ] Mode Purity — exactly one Diátaxis mode (Reference)
+[ ] Concept Budget — ≤3 new concepts per section
+[ ] Examples — ≥1 per concept
+[ ] Anti-patterns — ≥3 "Don't" items
+[ ] Terminology — one term per concept throughout

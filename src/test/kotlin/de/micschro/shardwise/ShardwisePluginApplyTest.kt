@@ -81,13 +81,4 @@ class ShardwisePluginApplyTest {
         // The plugin maps them to empty modules — same as any unmatched task name.
         assertEquals(mapOf("build" to emptyList<String>()), params.taskModulePaths.get())
     }
-
-    @Test
-    fun `generateTestWeights is registered on the root project`() {
-        val root = root()
-        root.pluginManager.apply(ShardwisePlugin::class.java)
-        val task = root.tasks.findByName("generateTestWeights")
-        assertTrue(task != null, "expected 'generateTestWeights' task on root project")
-        assertEquals("Shardwise", task!!.group)
-    }
 }

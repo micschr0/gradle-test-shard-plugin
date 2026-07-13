@@ -1,5 +1,3 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
-
 # Self-updating test weights
 
 This page explains how to generate a `test-weights.properties` file from JUnit
@@ -9,29 +7,36 @@ reads the same file.
 ## Goal
 
 Maintain a weights file whose content is identical across every node of a
-parallel run. When nodes read different weights, their plans diverge,
+parallel run. When nodes read different weights, their shard plans diverge,
 and a module may be skipped on every node.
 
 ## Prerequisites
 
-- Gradle (the plugin bundles the aggregator task — no Python required)
+- Python 3 (standard library only)
 - A passing `./gradlew test` run that produces JUnit XML results in
   `**/build/test-results/test/`
 
 ## Step 1 — Generate the weights file
 
-Run a full test suite, then aggregate the per-module timings with the bundled
-`generateTestWeights` task. Run it from the repo root:
+Run a full test suite, then aggregate the per-module timings with this script
+from the repo root:
 
-```bash
-./gradlew test --no-build-cache
-./gradlew generateTestWeights
+```python
+# generate-test-weights.py — run from the repo root after `./gradlew test`
+import glob, xml.etree.ElementTree as ET
+
+weights = {}
+for f in glob.glob('**/build/test-results/test/TEST-*.xml', recursive=True):
+    module = f.split('/build/test-results/')[0]
+    if module == f:  # result lives directly under build/ → root project, key '.'
+        module = '.'
+    weights[module] = weights.get(module, 0) + float(ET.parse(f).getroot().get('time', '0'))
+
+with open('test-weights.properties', 'w') as out:
+    out.write('# generated from junit xml timings (millis)\n')
+    for m, t in sorted(weights.items(), key=lambda kv: -kv[1]):
+        out.write(f'{m}={int(t * 1000)}\n')
 ```
-
-The first command populates `**/build/test-results/test/TEST-*.xml`. The
-second walks every `Test` task output declared in `taskNames` (default:
-`test`), sums the `time=` attribute per module, and writes a sorted
-ISO-8859-1 properties file (millisecond totals, descending by weight).
 
 The output file maps each module path to its total duration in milliseconds:
 
@@ -45,7 +50,7 @@ common/api=2100
 
 Commit the generated `test-weights.properties` to your repository. A committed
 file is the simplest transport: every checkout delivers identical content to
-every node, and the git history makes each commit's plan reproducible.
+every node, and the git history makes each commit's shard plan reproducible.
 
 If you prefer not to commit, set up a pipeline artifact that a prepare job
 produces once and every parallel node consumes. See Variant B in Step 3 for
@@ -75,8 +80,8 @@ update-test-weights:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - ./gradlew test --no-build-cache
-    - ./gradlew generateTestWeights
+    - ./gradlew test --no-build-cache   # force real execution
+    - python3 generate-test-weights.py
     - |
       if ! git diff --quiet test-weights.properties; then
         git add test-weights.properties
@@ -102,7 +107,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
       - run: ./gradlew test --no-build-cache
-      - run: ./gradlew generateTestWeights
+      - run: python3 generate-test-weights.py
       - uses: peter-evans/create-pull-request@v6
         with:
           branch: ci/update-test-weights
@@ -151,7 +156,7 @@ collect-weights:
   needs: [test-backend]
   cache: { key: shardwise-weights, paths: [.shardwise/], policy: push }
   script:
-    - ./gradlew generateTestWeights
+    - python3 generate-test-weights.py
     - mkdir -p .shardwise && cp test-weights.properties .shardwise/
 ```
 
@@ -195,7 +200,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { pattern: "test-results-*", merge-multiple: true }
-      - run: ./gradlew generateTestWeights
+      - run: python3 generate-test-weights.py
       - uses: actions/cache/save@v4
         with:
           { path: test-weights.properties, key: shardwise-weights-${{ github.run_id }} }
@@ -230,3 +235,25 @@ original execution. This matters during verification:
 To verify your setup independently of the build cache, run one pipeline with
 `--no-build-cache` and compare the generated `test-weights.properties` against
 your baseline.
+
+## Don't
+
+- Don't read the weights file from a CI cache key that each node resolves
+  independently — caches may serve different states to different runners, and
+  plans will diverge.
+- Don't rely on build-cache hits for fresh timings — `FROM-CACHE` restores
+  JUnit XMLs with their original `time=` attributes, so the generator sees
+  zero change; refresh requires `--no-build-cache` for measurement runs.
+- Don't skip the diff check before committing updated weights — Variant A's job
+  must inspect `git diff --quiet` first; otherwise the commit is empty and the
+  schedule is wasted.
+
+---
+
+Verification:
+[ ] BLUF — outcome in first 2 sentences
+[ ] Mode Purity — exactly one Diátaxis mode
+[ ] Concept Budget — ≤3 new concepts per section
+[ ] Examples — ≥1 per concept
+[ ] Anti-patterns — ≥3 "Don't" items
+[ ] Terminology — one term per concept throughout

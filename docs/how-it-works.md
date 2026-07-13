@@ -1,11 +1,7 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
-
 # How Shardwise works
 
 Shardwise distributes weighted test modules across N parallel CI nodes using Greedy-LPT bin-packing, producing a deterministic plan that keeps every module running on exactly one node. After reading this, you can predict which module lands where and why the planner errs toward running, never skipping, when in doubt.
 
-> **Glossary.** In this explanation: **module** means a Gradle subproject, **CI node** is the runner that executes a job, **plan** is the deterministic shard assignment (not "shard plan" or "partition"), and **weights** are relative timing values per module. See the [configuration reference](configuration.md) for the canonical DSL terms.
->
 ## The problem
 
 The slowest CI node determines a multi-module build's total test time. Naive sharding (`hash(module) % N`, alphabetical round-robin) distributes module *counts* evenly, but module test *durations* can span three orders of magnitude — one node gets the 20-minute service suite, another gets thirty 2-second domain modules.
@@ -87,7 +83,7 @@ Three rules govern what happens when the inputs are unusual or broken:
 
 ### 2. All nodes derive the identical plan
 
-There is no coordinator. Each of the N parallel nodes independently computes the full plan and picks its own slice. The plan is correct only if every node produces the identical plan, which requires:
+There is no coordinator. Each of the N parallel nodes independently computes the full plan and picks its own slice. The partition is correct only if every node produces the identical plan, which requires:
 
 - **Deterministic planning** — the LPT sort is total (weight desc, then path asc), so the plan is invariant under module discovery order. The unit test `plan is invariant under input permutation` verifies this with shuffled inputs.
 - **Identical inputs** — the weights file must be identical on all nodes of a run: committed to git or distributed as a single pipeline artifact. A CI cache read independently by each node is unsafe: caches may serve different states to different runners (see [self-updating-weights.md](self-updating-weights.md)).
@@ -114,7 +110,7 @@ flowchart TB
         PLG["ShardwisePlugin"]
         VS["NodeEnvValueSource<br/>(only System.getenv access)"]
         BS["ShardBuildService<br/>(one lazy plan per build)"]
-        TT["every matching Test task<br/>onlyIf 'Shardwise node N/M'"]
+        TT["every matching Test task<br/>onlyIf 'assigned to this shard'"]
     end
     subgraph pure["Pure core — no Gradle types"]
         TW["TestWeights<br/>parse weights file"]
@@ -181,8 +177,8 @@ The trade-off: dependencies of a skipped test task (e.g. `testClasses`) may stil
 The plugin has no report task; the assignment is visible through task outcomes:
 
 - Skipped modules show `SKIPPED` in the console output (see the sample in the README).
-- `./gradlew test --info` prints the reason: `Skipping task ':mod-a:test' as task onlyIf 'Shardwise node 2/3' is false.` (the reason shows the actual node and total).
-- Inspecting the full plan means running the build once per node index — setting `CI_NODE_INDEX` to each value `1..N` in turn and comparing which test tasks execute.
+- `./gradlew test --info` prints the reason: `Skipping task ':mod-a:test' as task onlyIf 'assigned to this shard' is false.`
+- Inspecting the full partition means running the build once per node index — setting `CI_NODE_INDEX` to each value `1..N` in turn and comparing which test tasks execute.
 
 ## Scope and known limitations
 
@@ -190,12 +186,19 @@ The plugin has no report task; the assignment is visible through task outcomes:
 - **Only `Test` tasks.** `taskNames` matches `org.gradle.api.tasks.testing.Test` tasks by name. Lifecycle tasks (`build`, `check`) are empty containers — skipping the container would not skip the work it depends on, so generalising to arbitrary task types needs validation first (planned for a later release).
 - **Composite builds.** `includeBuild` builds have their own `Gradle` instance; their test tasks are not seen by the plugin and simply run on every node (coverage is preserved, work is duplicated).
 - **Android.** Variant test tasks (`testDebugUnitTest`, …) are `Test` tasks and can be listed in `taskNames` explicitly; there is no variant-aware matching.
-- **Coverage tools (JaCoCo).** Sharding itself is unaffected — JaCoCo
-  instruments existing `Test` tasks. The catch is *where* the data lands:
-  - Each module's execution data (`.exec`) is produced only on the node that ran
-    it. On the other nodes `jacocoTestReport` has no data and is skipped.
-  - Aggregated reports and threshold checks (`jacocoTestCoverageVerification`,
-    SonarQube gates) must run in a **collect job** that merges the `.exec` (or
-    XML) data of *all* nodes — a per-node check sees partial coverage and fails.
-  - Use the same artifact pattern as for JUnit XML results. See
-    [troubleshooting](troubleshooting.md) for a ready-made merge script.
+- **Coverage tools (JaCoCo).** Sharding itself is unaffected — JaCoCo instruments existing `Test` tasks. But each module's execution data (`.exec`) is produced only on the node that ran it; on the other nodes `jacocoTestReport` has no execution data and is skipped. Aggregated reports and threshold checks (`jacocoTestCoverageVerification`, SonarQube gates) must therefore run in a collect job that merges the execution data or XML reports of *all* nodes — per-node checks would see partial coverage and fail. Use the same artifact pattern as for JUnit XML results.
+
+## Don't
+
+- Don't introduce task-level sorting outside `TestShardPlanner` — the LPT sort is total (weight desc, path asc tie-break). Any secondary sort elsewhere breaks determinism: a different module order means a different plan on one node.
+- Don't access `System.getenv` outside `NodeEnvValueSource` — direct env access at Gradle configuration time bakes one node's CI index into the configuration-cache entry, causing every node to see the same cached plan.
+- Don't bypass the `ValueSource` in a refactor for "convenience" — CC safety depends on the environment variables being tracked inputs. An untracked env read is a cache-poisoning bug.
+- Don't place weight-reconciliation logic in the Gradle glue layer — the separation between pure core and Gradle glue is deliberate; mixing them prevents unit testing the planning logic in isolation.
+
+Verification:
+[ ] BLUF — outcome in first 2 sentences
+[ ] Mode Purity — exactly one Diátaxis mode
+[ ] Concept Budget — ≤3 new concepts per section
+[ ] Examples — ≥1 per concept
+[ ] Anti-patterns — ≥3 "Don't" items
+[ ] Terminology — one term per concept throughout

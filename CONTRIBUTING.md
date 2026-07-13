@@ -1,5 +1,3 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
-
 # Contributing to Shardwise
 
 How to build, test, and submit changes while keeping the public API, coverage
@@ -108,3 +106,12 @@ reproducer.
   against `gradle-api:8.11` (`compileOnly`). A newer API will fail at runtime
   for consumers on 8.11.
 
+---
+
+Verification:
+[ ] BLUF — outcome in first 2 sentences
+[ ] Mode Purity — exactly one Diátaxis mode (How-to)
+[ ] Concept Budget — ≤3 new concepts per section
+[ ] Examples — ≥1 per concept
+[ ] Anti-patterns — ≥3 "Don't" items
+[ ] Terminology — one term per concept throughout

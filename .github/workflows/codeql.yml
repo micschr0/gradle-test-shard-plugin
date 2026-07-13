@@ -8,9 +8,9 @@ name: CodeQL
 # repo is public or GHAS is enabled; nothing else needs to change.
 #
 #  push:
-#    branches: [main]
+#    branches: [master]
 #  pull_request:
-#    branches: [main]
+#    branches: [master]
 #  schedule:
 #    - cron: "0 6 * * 3" # Weekly on Wednesday 06:00 UTC
 on:

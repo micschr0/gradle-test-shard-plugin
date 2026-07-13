@@ -1,5 +1,3 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
-
 # End-to-end tests
 
 Proves the guarantees that unit and TestKit tests structurally cannot: that N **separate processes**, in **separate containers**, each derive the *same* shard plan and each runs its share of it — and that a failing test still turns the pipeline red.
@@ -128,4 +126,10 @@ Pass these as environment variables to `run-docker.sh` or with `glci --env`.
 
 ---
 
-
+Verification:
+[ ] BLUF — outcome in first 2 sentences
+[ ] Mode Purity — exactly one Diátaxis mode (How-to)
+[ ] Concept Budget — ≤3 new concepts per section
+[ ] Examples — ≥1 per concept
+[ ] Anti-patterns — ≥3 "Don't" items
+[ ] Terminology — one term per concept throughout

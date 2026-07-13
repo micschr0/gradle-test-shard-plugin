@@ -1,6 +1,5 @@
 package de.micschro.shardwise
 
-import de.micschro.shardwise.internal.GenerateTestWeights
 import de.micschro.shardwise.internal.NodeEnv
 import de.micschro.shardwise.internal.NodeEnvValueSource
 import de.micschro.shardwise.internal.PlanDump
@@ -40,12 +39,6 @@ public class ShardwisePlugin : Plugin<Project> {
         val nodeI = nodeEnv.map(NodeEnv::index)
         val nodeT = nodeEnv.map(NodeEnv::total)
 
-        // Captured into Providers so the whenReady body stays configuration-cache-friendly.
-        val planDumpPath: Provider<String> =
-            project.providers.systemProperty("shardwise.planDump").orElse("")
-        val ansi: Provider<Boolean> =
-            project.providers.provider { System.console() != null }
-
         val taskModulePaths = project.provider {
             ext.taskNames.get().associateWith { taskName ->
                 project.allprojects
@@ -69,12 +62,10 @@ public class ShardwisePlugin : Plugin<Project> {
 
         val taskNames = ext.taskNames
 
-        registerGenerateTestWeights(project, taskNames, ext.weightsFile)
-
         project.gradle.taskGraph.whenReady { graph ->
             warnOnLifecycleTasks(project, taskNames, graph)
-            dumpPlans(taskNames, service, planDumpPath)
-            logPlan(ext, taskNames, nodeI, nodeT, service, ansi)
+            dumpPlans(taskNames, service)
+            logPlan(ext, taskNames, nodeI, nodeT, service)
         }
 
         project.allprojects { p ->
@@ -95,29 +86,6 @@ public class ShardwisePlugin : Plugin<Project> {
     }
 
     /**
-     * Registers the weights-aggregation task once per Gradle invocation.
-     * Aggregator only: it never starts a test suite. Run `test --no-build-cache`
-     * first when timings need to reflect today's CI runner rather than restored
-     * build-cache output.
-     */
-    private fun registerGenerateTestWeights(
-        project: Project,
-        taskNames: SetProperty<String>,
-        weightsFile: org.gradle.api.file.RegularFileProperty
-    ) {
-        project.tasks.register(
-            "generateTestWeights",
-            GenerateTestWeights::class.java
-        ) { task ->
-            task.group = "Shardwise"
-            task.description =
-                "Aggregates JUnit XML timings into test-weights.properties for shardwise balancing."
-            task.taskNames.set(taskNames)
-            GenerateTestWeights.wireInputsFrom(task, project, weightsFile)
-        }
-    }
-
-    /**
      * Lifecycle tasks (`build`, `check`, …) are empty containers — `onlyIf` skips only the
      * container while its `dependsOn` work still runs on every node. Checked against the
      * task graph so tasks registered after plugin apply are covered too.
@@ -131,7 +99,7 @@ public class ShardwisePlugin : Plugin<Project> {
             .forEach { name ->
                 project.logger.warn(
                     "Shardwise: taskName '{}' is a lifecycle task — sharding skips the container, " +
-                            "but its dependsOn work still runs on every node",
+                        "but its dependsOn work still runs on every node",
                     name
                 )
             }
@@ -143,20 +111,14 @@ public class ShardwisePlugin : Plugin<Project> {
      * agree on the plan and that each runs its own share — neither of which can be
      * seen by counting task outcomes. Off unless explicitly asked for.
      */
-    private fun dumpPlans(
-        taskNames: SetProperty<String>,
-        service: Provider<ShardBuildService>,
-        planDumpPath: Provider<String>,
-    ) {
+    private fun dumpPlans(taskNames: SetProperty<String>, service: Provider<ShardBuildService>) {
         try {
-            val path = planDumpPath.get()
-            if (path.isEmpty()) return
+            val target = System.getProperty("shardwise.planDump") ?: return
             val svc = service.get()
-            val target = java.io.File(path)
             val dump = taskNames.get().sorted()
                 .mapNotNull { svc.planFor(it) }
                 .joinToString("\n") { PlanDump.render(it) }
-            target.apply {
+            java.io.File(target).apply {
                 parentFile?.mkdirs()
                 writeText(dump)
             }
@@ -171,14 +133,13 @@ public class ShardwisePlugin : Plugin<Project> {
         nodeI: Provider<Int>,
         nodeT: Provider<Int>,
         service: Provider<ShardBuildService>,
-        ansi: Provider<Boolean>,
     ) {
         try {
             val detail = ext.planDetail.get()
             if (detail == PlanDetail.OFF || nodeT.get() <= 1) return
 
             // Colour only when stdout is a terminal — CI log viewers render escape codes as garbage.
-            val renderer = PlanRenderer(ansi = ansi.get())
+            val renderer = PlanRenderer(ansi = System.console() != null)
             val svc = service.get()
             val nodeIndex = nodeI.get()
 
@@ -202,7 +163,7 @@ public class ShardwisePlugin : Plugin<Project> {
     }
 }
 
-internal val Project.shardPath: String
+private val Project.shardPath: String
     get() = path.removePrefix(":").replace(':', '/').ifEmpty { "." }
 
 /** Missing or unreadable weights file ⇒ "" ⇒ default weights (coverage beats balance). */

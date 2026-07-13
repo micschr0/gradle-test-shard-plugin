@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
   pull_request:
-    branches: [main]
+    branches: [master]
     paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
 
 concurrency:
@@ -37,7 +37,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
 
 
       - name: ShellCheck

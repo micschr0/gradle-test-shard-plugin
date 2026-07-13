@@ -14,8 +14,7 @@ import java.io.File
 
 class ShardwisePluginFunctionalTest {
 
-    @field:TempDir
-    lateinit var projectDir: File
+    @field:TempDir lateinit var projectDir: File
 
     private val modules = listOf("mod-a", "mod-b", "mod-c", "mod-d")
 
@@ -28,8 +27,7 @@ class ShardwisePluginFunctionalTest {
             "rootProject.name = \"example\"\n" +
                 modules.joinToString("\n") { "include(\"$it\")" }
         )
-        val rootPlugins =
-            if (rootHasJava) "java\n                id(\"de.micschro.shardwise\")" else "id(\"de.micschro.shardwise\")"
+        val rootPlugins = if (rootHasJava) "java\n                id(\"de.micschro.shardwise\")" else "id(\"de.micschro.shardwise\")"
         projectDir.resolve("build.gradle.kts").writeText(
             """
             plugins {
@@ -142,11 +140,7 @@ class ShardwisePluginFunctionalTest {
         }
         modules.forEach { m ->
             taskNames.forEach { t ->
-                assertEquals(
-                    1,
-                    ranOn["$m:$t"]?.size ?: 0,
-                    "$m:$t must run on exactly one node, ran on ${ranOn["$m:$t"]}"
-                )
+                assertEquals(1, ranOn["$m:$t"]?.size ?: 0, "$m:$t must run on exactly one node, ran on ${ranOn["$m:$t"]}")
             }
         }
     }
@@ -408,26 +402,5 @@ class ShardwisePluginFunctionalTest {
             result.output.contains("Isolated Projects") || result.output.contains("allprojects"),
             "Isolated Projects must detect cross-project access violation"
         )
-    }
-
-    @Test
-    fun `planDump system property writes plan file that both nodes agree on`() {
-        writeExampleProject()
-        val dumpDir = projectDir.resolve("build").also { it.mkdirs() }
-        val dump1 = dumpDir.resolve("plan-1.txt")
-        val dump2 = dumpDir.resolve("plan-2.txt")
-        runner(1, 3, tasks = listOf("test", "-Dshardwise.planDump=$dump1")).build()
-        runner(2, 3, tasks = listOf("test", "-Dshardwise.planDump=$dump2")).build()
-        assertTrue(dump1.exists(), "node 1 must produce a plan dump")
-        assertTrue(dump2.exists(), "node 2 must produce a plan dump")
-        assertEquals(
-            dump1.readText(), dump2.readText(),
-            "both nodes must derive the same plan, because the planner is deterministic"
-        )
-        val dump = dump1.readText()
-        assertTrue(dump.contains("mod-a"), "dump must name a known module")
-        assertTrue(dump.contains("="), "dump must contain 'N=mod,mod' lines")
-        assertTrue("1=" in dump, "dump must contain node 1's assignment")
-        assertTrue("2=" in dump, "dump must contain node 2's assignment")
     }
 }

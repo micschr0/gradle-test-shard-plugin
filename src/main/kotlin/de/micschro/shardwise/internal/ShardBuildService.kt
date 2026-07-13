@@ -1,5 +1,6 @@
 package de.micschro.shardwise.internal
 
+import org.gradle.api.logging.Logger
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.services.BuildService

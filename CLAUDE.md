@@ -24,23 +24,8 @@ gradle apiDump           # regenerate api/*.api after ANY public API change
 The container needs network egress to resolve plugins on the first run — pass
 `--network host` when the sandbox blocks default bridge networking.
 
-### Sandbox-specific override (this environment only)
 
-The default `gradle()` wrapper above fails with `PKIX path building failed` because
-iron-proxy intercepts TLS to `services.gradle.org`. Use this instead — it avoids the
-TLS path by hosting the build on the host JVM:
-
-```bash
-# 1. Once per session, clear root-owned artifacts from prior container runs:
-docker run --rm -v "$(pwd)":/w -w /w --user root alpine:3.21 \
-  sh -c 'rm -rf build .gradle'
-
-# 2. Build natively with the cache in the project tree (NOT /tmp — capped at 2GB):
-GRADLE_USER_HOME=./.gradle-cache \
-  ./gradlew test functionalTest --no-daemon \
-  --no-build-cache --no-configuration-cache \
-  --project-cache-dir ./.gradle-cache/cache
-```
+Functional tests are the source of truth for plugin behaviour — always run them for
 changes to `ShardwisePlugin`, `ShardBuildService`, or `NodeEnvValueSource`.
 
 ## Architecture

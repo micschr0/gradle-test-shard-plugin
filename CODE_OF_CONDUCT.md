@@ -1,4 +1,3 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
 # Contributor Covenant Code of Conduct
 
 ## Our Pledge
