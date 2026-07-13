@@ -5,8 +5,7 @@ import de.micschro.shardwise.internal.NodeEnv
 import de.micschro.shardwise.internal.NodeEnvValueSource
 import de.micschro.shardwise.internal.PlanDump
 import de.micschro.shardwise.internal.PlanRenderer
-import de.micschro.shardwise.internal.ShardNodeEnvService
-import de.micschro.shardwise.internal.ShardPlannerService
+import de.micschro.shardwise.internal.ShardBuildService
 import de.micschro.shardwise.internal.TestWeights
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -41,6 +40,7 @@ public class ShardwisePlugin : Plugin<Project> {
         val nodeI = nodeEnv.map(NodeEnv::index)
         val nodeT = nodeEnv.map(NodeEnv::total)
 
+        // Captured into Providers so the whenReady body stays configuration-cache-friendly.
         val planDumpPath: Provider<String> =
             project.providers.systemProperty("shardwise.planDump").orElse("")
         val ansi: Provider<Boolean> =
@@ -54,84 +54,40 @@ public class ShardwisePlugin : Plugin<Project> {
             }
         }
 
-        val weightsText = ext.weightsFile.map { readTextOrEmpty(it.asFile) }.orElse("")
+        val weightsText = ext.weightsFile.map { readTextOrEmpty(it.asFile) }
+            .orElse("")
 
-        val (planner, nodeEnvService) = registerShardServices(
-            project, ext, nodeI, nodeT, taskModulePaths, weightsText
-        )
+        val service = project.gradle.sharedServices.registerIfAbsent(
+            "de.micschro.shardwise.plan", ShardBuildService::class.java
+        ) {
+            it.parameters.nodeIndex.set(nodeI)
+            it.parameters.nodeTotal.set(nodeT)
+            it.parameters.defaultWeight.set(ext.defaultWeight)
+            it.parameters.weightsText.set(weightsText)
+            it.parameters.taskModulePaths.set(taskModulePaths)
+        }
 
         val taskNames = ext.taskNames
+
         registerGenerateTestWeights(project, taskNames, ext.weightsFile)
 
         project.gradle.taskGraph.whenReady { graph ->
             warnOnLifecycleTasks(project, taskNames, graph)
-            dumpPlans(taskNames, planner, planDumpPath)
-            logPlan(ext, taskNames, nodeI, nodeT, planner, ansi)
+            dumpPlans(taskNames, service, planDumpPath)
+            logPlan(ext, taskNames, nodeI, nodeT, service, ansi)
         }
 
-        configureTestTasks(project, taskNames, planner, nodeEnvService, nodeI, nodeT)
-    }
-
-    /**
-     * Registers two shared services with independent configuration-cache keys:
-     * the planner (defaultWeight, weightsText, taskModulePaths, nodeTotal — invalidated
-     * when any of those change) and the NodeEnv (nodeIndex — invalidated only when the
-     * current CI node changes).
-     */
-    private fun registerShardServices(
-        project: Project,
-        ext: ShardwiseExtension,
-        nodeI: Provider<Int>,
-        nodeT: Provider<Int>,
-        taskModulePaths: Provider<Map<String, List<String>>>,
-        weightsText: Provider<String>
-    ): Pair<Provider<ShardPlannerService>, Provider<ShardNodeEnvService>> {
-        val planner = project.gradle.sharedServices.registerIfAbsent(
-            "de.micschro.shardwise.planner", ShardPlannerService::class.java
-        ) {
-            it.parameters.defaultWeight.set(ext.defaultWeight)
-            it.parameters.weightsText.set(weightsText)
-            it.parameters.taskModulePaths.set(taskModulePaths)
-            it.parameters.nodeTotal.set(nodeT)
-        }
-        val nodeEnvService = project.gradle.sharedServices.registerIfAbsent(
-            "de.micschro.shardwise.nodeEnv", ShardNodeEnvService::class.java
-        ) {
-            it.parameters.nodeIndex.set(nodeI)
-        }
-        return planner to nodeEnvService
-    }
-
-    /**
-     * Wires every Test task to consume both shared services and decides per-task
-     * whether the current node runs it. Coverage beats balance: unknown plan or
-     * `nodeTotal <= 1` ⇒ run, never skip.
-     */
-    private fun configureTestTasks(
-        project: Project,
-        taskNames: SetProperty<String>,
-        planner: Provider<ShardPlannerService>,
-        nodeEnvService: Provider<ShardNodeEnvService>,
-        nodeI: Provider<Int>,
-        nodeT: Provider<Int>,
-    ) {
         project.allprojects { p ->
             val modulePath = p.shardPath
             p.tasks.withType(Test::class.java).configureEach { test ->
                 val taskName = test.name
-                test.usesService(planner)
-                test.usesService(nodeEnvService)
+                test.usesService(service)
                 test.onlyIf("Shardwise node ${nodeI.get()}/${nodeT.get()}") {
                     val inList = taskName in taskNames.get()
                     if (!inList) return@onlyIf true
-                    val planSvc = planner.get()
-                    val nodeIndex = nodeI.get()
-                    val nodeTotal = nodeT.get()
-                    if (nodeTotal <= 1) return@onlyIf true
-                    val plan = planSvc.planFor(taskName) ?: return@onlyIf true
-                    val here = plan.assignments[nodeIndex].orEmpty()
-                    val runs = modulePath in here
-                    log.debug("Shardwise decision: $taskName:$modulePath -> ${if (runs) "RUN" else "skip"}")
+                    val runs = service.get().runsOnThisNode(taskName, modulePath)
+                    val decision = if (runs) "RUN" else "skip (assigned elsewhere)"
+                    log.debug("Shardwise decision: $taskName:$modulePath -> $decision")
                     runs
                 }
             }
@@ -189,7 +145,7 @@ public class ShardwisePlugin : Plugin<Project> {
      */
     private fun dumpPlans(
         taskNames: SetProperty<String>,
-        service: Provider<ShardPlannerService>,
+        service: Provider<ShardBuildService>,
         planDumpPath: Provider<String>,
     ) {
         try {
@@ -214,7 +170,7 @@ public class ShardwisePlugin : Plugin<Project> {
         taskNames: SetProperty<String>,
         nodeI: Provider<Int>,
         nodeT: Provider<Int>,
-        service: Provider<ShardPlannerService>,
+        service: Provider<ShardBuildService>,
         ansi: Provider<Boolean>,
     ) {
         try {

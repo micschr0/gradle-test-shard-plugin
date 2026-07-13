@@ -25,7 +25,7 @@ internal object TestWeights {
     fun toModules(
         paths: List<String>,
         weights: Map<String, Int>,
-        defaultWeight: Int
+        defaultWeight: Int = DEFAULT_WEIGHT
     ): List<TestModule> =
         paths.map { path -> TestModule(path, weights[path] ?: defaultWeight) }
 }

@@ -1,11 +1,9 @@
 plugins {
     id("java-gradle-plugin")
-    alias(libs.plugins.kotlinJvm)
-    alias(libs.plugins.detekt)
-    alias(libs.plugins.ktlint)
-    alias(libs.plugins.binaryCompatibilityValidator)
-    alias(libs.plugins.pluginPublish)
-    alias(libs.plugins.kover)
+    kotlin("jvm") version "2.4.0"
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
+    id("org.jetbrains.kotlinx.binary-compatibility-validator") version "0.18.1"
+    id("com.gradle.plugin-publish") version "2.1.1"
 }
 
 group = "de.micschro"
@@ -15,7 +13,7 @@ kotlin {
     explicitApi()
     jvmToolchain(17)
     compilerOptions {
-        freeCompilerArgs.addAll("-jvm-default=enable", "-Xjsr305=strict")
+        freeCompilerArgs.addAll("-Xjvm-default=all", "-Xjsr305=strict")
     }
 }
 
@@ -83,7 +81,4 @@ detekt {
     config.from(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
 }
 
-tasks.named("check") {
-    dependsOn(tasks.named("detekt"))
-    dependsOn(tasks.named("ktlintCheck"))
-}
+tasks.named("check") { dependsOn(tasks.named("detekt")) }

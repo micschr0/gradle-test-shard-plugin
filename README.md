@@ -5,7 +5,8 @@
 [![Version](https://img.shields.io/gradle-plugin-portal/v/de.micschro.shardwise?label=version&color=blue)](https://plugins.gradle.org/plugin/de.micschro.shardwise)
 [![License](https://img.shields.io/github/license/micschr0/gradle-test-shard-plugin)](LICENSE)
 
-Shardwise balances test suites across parallel CI nodes using Greedy-LPT
+Shardwise balances test suites across parallel CI workers using Greedy-LPT
+bin-packing, reducing wall time without duplicating or losing coverage. It runs
 locally with environment variables and works with any CI provider that sets
 `CI_NODE_INDEX` and `CI_NODE_TOTAL`. No network calls, no data exfiltration,
 and every module runs exactly once.
@@ -113,7 +114,7 @@ the rest as reference:
 
 - Android variant tasks — shard `testDebugUnitTest` and `testReleaseUnitTest`
 - Kotlin Multiplatform — shard `iosTest` alongside JVM tests
-- Notes and requests at [https://github.com/micschr0/gradle-test-shard-plugin/issues](https://github.com/micschr0/gradle-test-shard-plugin/issues)
+- Notes and requests at [issues](/../../issues)
 
 This is not a commitment; priorities may shift.
 
@@ -129,7 +130,8 @@ Bug fixes and improvements welcome. The project uses:
 - **ShellCheck** for shell scripts — `shellcheck e2e/*.sh e2e/scripts/*.sh`
 - **actionlint** for GitHub Actions workflows
 - **Renovate** for automated dependency updates
-- **CodeQL** for security analysis (available on `workflow_dispatch`)
+- **CodeQL** for security analysis (weekly)
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development setup.
 
 ## License

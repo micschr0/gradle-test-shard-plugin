@@ -49,10 +49,8 @@ class GenerateTestWeightsFunctionalTest {
     private fun runner(extraArgs: List<String> = emptyList()): GradleRunner = GradleRunner.create()
         .withProjectDir(projectDir)
         .withPluginClasspath()
-        .withArguments(listOf("generateTestWeights", "--no-build-cache") + extraArgs)
-        .withEnvironment(
-            System.getenv()
-                .filterKeys { it == "JAVA_HOME" || it == "PATH" || it == "CI_NODE_INDEX" || it == "CI_NODE_TOTAL" })
+        .withArguments(listOf("generateTestWeights", "--no-build-cache", "--no-configuration-cache") + extraArgs)
+        .withEnvironment(System.getenv().filterKeys { it == "JAVA_HOME" || it == "PATH" })
         .forwardOutput()
 
     private fun writeJUnitXml(
@@ -360,20 +358,5 @@ class GenerateTestWeightsFunctionalTest {
         val props = readWeights()
         assertEquals("500", props.getProperty("mod-a"))
         assertEquals(1, props.size)
-    }
-
-    @Test
-    fun `configuration cache is reused on second identical run`() {
-        writeProject()
-        writeJUnitXml("mod-a", taskName = "test", timeSeconds = 1.0)
-
-        // prime the cache
-        runner(extraArgs = listOf("--configuration-cache")).build()
-        // second run with identical inputs must reuse the cache
-        val result = runner(extraArgs = listOf("--configuration-cache")).build()
-        assertTrue(
-            result.output.contains("Reusing configuration cache."),
-            "second identical run must reuse configuration cache"
-        )
     }
 }

@@ -12,7 +12,14 @@ internal data class TestModule(
 internal data class ShardPlan(
     val nodeTotal: Int,
     val assignments: Map<Int, List<String>>
-)
+) {
+    /** Unknown modules default to running rather than being silently skipped. */
+    fun runsOn(nodeIndex: Int, modulePath: String): Boolean {
+        val plannedSomewhere = assignments.values.any { modulePath in it }
+        if (!plannedSomewhere) return true
+        return assignments[nodeIndex]?.contains(modulePath) == true
+    }
+}
 
 /**
  * Distributes test modules across [nodeTotal] shards via Greedy-LPT bin-packing (each module to one

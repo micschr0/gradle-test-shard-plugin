@@ -26,7 +26,7 @@ class ShardwisePluginFunctionalTest {
     ) {
         projectDir.resolve("settings.gradle.kts").writeText(
             "rootProject.name = \"example\"\n" +
-                    modules.joinToString("\n") { "include(\"$it\")" }
+                modules.joinToString("\n") { "include(\"$it\")" }
         )
         val rootPlugins =
             if (rootHasJava) "java\n                id(\"de.micschro.shardwise\")" else "id(\"de.micschro.shardwise\")"
@@ -99,7 +99,7 @@ class ShardwisePluginFunctionalTest {
         val result = runner(nodeIndex, 3).build()
         assertTrue(
             result.output.contains("Configuration cache entry stored") ||
-                    result.output.contains("Reusing configuration cache"),
+                result.output.contains("Reusing configuration cache"),
             "configuration cache must engage"
         )
         modules.forEach { m -> outcomeOf(result, ":$m:test") }
@@ -245,7 +245,7 @@ class ShardwisePluginFunctionalTest {
         val result = runner(1, 3, gradleVersion = gradleVersion).build()
         assertTrue(
             result.output.contains("Configuration cache entry stored") ||
-                    result.output.contains("Reusing configuration cache"),
+                result.output.contains("Reusing configuration cache"),
             "configuration cache must engage on Gradle $gradleVersion"
         )
         val outcomes = modules.associateWith { m -> outcomeOf(result, ":$m:test") }
@@ -277,7 +277,7 @@ class ShardwisePluginFunctionalTest {
         // testing { suites { ... } } registers Test tasks lazily — the plan must still capture them
         projectDir.resolve("settings.gradle.kts").writeText(
             "rootProject.name = \"example\"\n" +
-                    modules.joinToString("\n") { "include(\"$it\")" }
+                modules.joinToString("\n") { "include(\"$it\")" }
         )
         projectDir.resolve("build.gradle.kts").writeText(
             """
@@ -330,7 +330,7 @@ class ShardwisePluginFunctionalTest {
     fun `groovy dsl consumer shards like the kotlin dsl`() {
         projectDir.resolve("settings.gradle").writeText(
             "rootProject.name = 'example'\n" +
-                    modules.joinToString("\n") { "include '$it'" }
+                modules.joinToString("\n") { "include '$it'" }
         )
         projectDir.resolve("build.gradle").writeText(
             """
@@ -347,7 +347,7 @@ class ShardwisePluginFunctionalTest {
         val result = runner(1, 3).build()
         assertTrue(
             result.output.contains("Configuration cache entry stored") ||
-                    result.output.contains("Reusing configuration cache"),
+                result.output.contains("Reusing configuration cache"),
             "configuration cache must engage for a Groovy DSL consumer"
         )
         val outcomes = modules.associateWith { m -> outcomeOf(result, ":$m:test") }
@@ -429,44 +429,5 @@ class ShardwisePluginFunctionalTest {
         assertTrue(dump.contains("="), "dump must contain 'N=mod,mod' lines")
         assertTrue("1=" in dump, "dump must contain node 1's assignment")
         assertTrue("2=" in dump, "dump must contain node 2's assignment")
-    }
-
-    @Test
-    fun `two shardwise build services are registered with independent params`() {
-        writeExampleProject()
-        // Append a custom task that lists shared services after shardwise has registered them.
-        val existing = projectDir.resolve("build.gradle.kts").readText()
-        projectDir.resolve("build.gradle.kts").writeText(
-            existing + "\n" + """
-            tasks.register("listShardServices") {
-                doFirst {
-                    gradle.sharedServices.registrations
-                        .filter { it.name.startsWith("de.micschro.shardwise") }
-                        .forEach { println("SHARDSVC:" + it.name) }
-                }
-            }
-            """.trimIndent()
-        )
-        val result = GradleRunner.create()
-            .withProjectDir(projectDir)
-            .withArguments("listShardServices")
-            .withPluginClasspath()
-            .build()
-        val svcs = result.output.lines()
-            .filter { it.startsWith("SHARDSVC:de.micschro.shardwise") }
-            .map { it.removePrefix("SHARDSVC:") }
-            .toSet()
-        assertTrue(
-            "de.micschro.shardwise.planner" in svcs,
-            "planner service must be registered; got $svcs"
-        )
-        assertTrue(
-            "de.micschro.shardwise.nodeEnv" in svcs,
-            "nodeEnv service must be registered; got $svcs"
-        )
-        assertTrue(
-            result.output.contains("BUILD SUCCESSFUL"),
-            "listShardServices task must succeed; got: ${result.output.take(500)}"
-        )
     }
 }

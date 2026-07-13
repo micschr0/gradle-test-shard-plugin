@@ -11,3 +11,4 @@ e2e/build/
 # Local AI runtime state
 .atl/
 .codegraph/
+openspec/

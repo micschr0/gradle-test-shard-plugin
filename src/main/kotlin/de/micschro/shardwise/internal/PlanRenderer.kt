@@ -96,7 +96,8 @@ internal class PlanRenderer(private val ansi: Boolean) {
 
     /** A border row with a title threaded in: `╭─ S H A R D W I S E ───…` or `├─ test ───…`. */
     private fun titledBorder(corner: String, title: String): String {
-        val fill = HORIZONTAL.repeat((FRAME_WIDTH - "$corner$HORIZONTAL $title ".length).coerceAtLeast(1))
+        val head = "$corner$HORIZONTAL $title "
+        val fill = HORIZONTAL.repeat((FRAME_WIDTH - head.length).coerceAtLeast(1))
         return "$INDENT${dim("$corner$HORIZONTAL ")}${bold(title)}${dim(" $fill")}"
     }
 
