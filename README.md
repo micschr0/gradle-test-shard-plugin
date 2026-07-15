@@ -2,25 +2,30 @@
 
 [![CI](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/gradle-plugin-portal/v/de.micschro.shardwise?label=version&color=blue)](https://plugins.gradle.org/plugin/de.micschro.shardwise)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/micschr0/gradle-test-shard-plugin/badge)](https://scorecard.dev/viewer/?uri=github.com/micschr0/gradle-test-shard-plugin)
 [![License](https://img.shields.io/github/license/micschr0/gradle-test-shard-plugin)](LICENSE)
 
-Shardwise shards multi-module test suites across parallel CI nodes using
-Greedy-LPT bin-packing. Each test module runs on exactly one shard; every other
-shard skips its test task — no duplication, no lost coverage. The plugin is
-configuration-cache safe, produces deterministic plans from identical inputs,
-and never skips a module by accident: unknown modules always run.
+Shardwise balances test suites across parallel CI nodes using Greedy-LPT (Longest Processing Time)
+locally with environment variables and works with any CI provider that sets
+`CI_NODE_INDEX` and `CI_NODE_TOTAL`. No network calls, no data exfiltration,
+and every module runs exactly once.
 
 Shardwise is pre-1.0 software without a SemVer commitment. The API may change
-between releases before 1.0. See [docs/RELEASING.md](docs/RELEASING.md) for
-the go-public timing plan.
+between releases before 1.0; the [CHANGELOG](CHANGELOG.md) is the authoritative
+record of breaking changes.
 
-- No network calls — Shardwise reads only `CI_NODE_INDEX` and `CI_NODE_TOTAL`
-  from the environment. Unlike SaaS sharding tools, it has no data exfiltration
-  surface.
-
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [What it does](#what-it-does)
+- [Safety Guarantees](#safety-guarantees)
+- [Documentation](#documentation)
+- [What we're working on](#what-were-working-on)
+- [Compatibility](#compatibility)
+- [Contributing](#contributing)
+- [Common pitfalls](#common-pitfalls)
 ## Features
 
-- **Greedy-LPT bin-packing** — distributes test modules across shards using
+- **Greedy-LPT (Longest Processing Time) bin-packing** — distributes test modules across shards using
   historical timing data for balanced execution
 - **Deterministic planning** — same inputs always produce the same shard
   assignment
@@ -41,7 +46,7 @@ the go-public timing plan.
 
    ```kotlin
    plugins {
-     id("de.micschro.shardwise") version "0.1.0"
+     id("de.micschro.shardwise") version "0.2.0"
    }
    ```
 
@@ -55,9 +60,9 @@ the go-public timing plan.
    A module assigned to the other shard prints a skip line whose `onlyIf`
    reason is the plugin's per-node identifier (e.g. `Shardwise node 1/2`):
 
-   ```
-   > Task :mod-a:test SKIPPED
-   Skipping task ':mod-a:test' as task onlyIf 'Shardwise node 1/2' is false.
+   ```text
+   > Task :services:checkout:test SKIPPED
+   Skipping task ':services:checkout:test' as task onlyIf 'Shardwise node 1/2' is false.
    ```
 
    A module on this shard runs. With `--info` you see a line like
@@ -73,7 +78,7 @@ the go-public timing plan.
 
 Shardwise solves a classic scheduling problem: distribute weighted jobs across
 identical CI nodes so the slowest node finishes as early as possible (minimum
-makespan). It uses Greedy LPT (Longest Processing Time) bin-packing, reading a
+uses Greedy-LPT (Longest Processing Time) bin-packing, reading a
 weights file of per-module historical timings. The planner is deterministic —
 identical inputs always produce identical output. See
 [How it works](docs/how-it-works.md) for the algorithm and design rationale.
@@ -97,25 +102,23 @@ exfiltration surface.
 
 ## Documentation
 
-- [Installation and CI setup](docs/install.md) — apply the plugin, configure
-  tasks, wire GitLab CI / GitHub Actions / CircleCI / Buildkite plus
-  Azure DevOps / Jenkins / Travis / Bitbucket
-- [Configuration reference](docs/configuration.md) — full `shardwise {}`
-  extension reference, `PlanDetail` levels, weights file format
-- [Self-updating weights](docs/self-updating-weights.md) — Python generator,
-  scheduled bot commits, and the every-run-feeds-the-next strategy
-- [How it works](docs/how-it-works.md) — algorithm design, guarantees, and
-  Gradle integration details
-- [Migrations-Tutorial](docs/tutorial-migrate.md) — walk through a real
-  migration with Need-First, Worked Example, Fading
-- [Troubleshooting](docs/troubleshooting.md) — diagnostics for the
-  patterns that come up after v0.1.0 ships
+Read them roughly in this order — install first, then the guided tutorial, with
+the rest as reference:
+
+| Page | What it covers |
+|------|---------------|
+| [Installation and CI setup](docs/install.md) | Apply the plugin, configure tasks, wire up any CI provider |
+| [Migration tutorial (from manual sharding)](docs/tutorial-migrate.md) | Walk through a real migration step by step |
+| [Configuration reference](docs/configuration.md) | Full `shardwise {}` extension, `PlanDetail` levels, weights file format |
+| [Self-updating weights](docs/self-updating-weights.md) | Generate `test-weights.properties` from JUnit XML and refresh automatically |
+| [How it works](docs/how-it-works.md) | Algorithm design, Greedy-LPT rationale, invariants |
+| [Troubleshooting](docs/troubleshooting.md) | Diagnostics for common CI and development issues |
 
 ## What we're working on
 
 - Android variant tasks — shard `testDebugUnitTest` and `testReleaseUnitTest`
 - Kotlin Multiplatform — shard `iosTest` alongside JVM tests
-- Notes and requests at [issues](/../../issues)
+- Notes and requests at [https://github.com/micschr0/gradle-test-shard-plugin/issues](https://github.com/micschr0/gradle-test-shard-plugin/issues)
 
 This is not a commitment; priorities may shift.
 
@@ -131,30 +134,19 @@ Bug fixes and improvements welcome. The project uses:
 - **ShellCheck** for shell scripts — `shellcheck e2e/*.sh e2e/scripts/*.sh`
 - **actionlint** for GitHub Actions workflows
 - **Renovate** for automated dependency updates
-- **CodeQL** for security analysis (weekly)
-
+- **CodeQL** for security analysis (available on `workflow_dispatch`)
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development setup.
 
 ## License
 
 [Apache-2.0](LICENSE)
 
-## Don't
+## Common pitfalls
 
-- Don't apply the plugin to subprojects — only the root project should declare
+- Don't apply the plugin to individual modules — only the root project should declare
   the `shardwise` plugin
 - Don't let parallel nodes read weights from independent cache entries —
   divergence causes modules to be skipped on every node; use committed files
   or shared pipeline artifacts instead
 - Don't use `test.only()` or similar Gradle built-in filtering alongside
   Shardwise — the plugin skips entire modules, not individual tests within them
-
----
-
-Verification:
-[ ] BLUF — outcome in first 2 sentences
-[ ] Mode Purity — exactly one Diátaxis mode (landing / overview)
-[ ] Concept Budget — ≤3 new concepts per section
-[ ] Examples — ≥1 per concept
-[ ] Anti-patterns — ≥3 "Don't" items
-[ ] Terminology — one term for concept throughout

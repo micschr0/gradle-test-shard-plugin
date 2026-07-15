@@ -1,0 +1,10 @@
+rules:
+  stale-action-refs:
+    ignore:
+      - codeql.yml      # codeql-action v3 SHAs are the only immutable ref for private-repo CodeQL
+      - ci.yml          # no stale refs confirmed by manual audit
+      - release.yml     # pinned SHAs confirmed
+
+  superfluous-actions:
+    ignore:
+      - ci.yml          # every step is load-bearing per comments in the workflow

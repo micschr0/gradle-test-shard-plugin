@@ -1,0 +1,24 @@
+change: shardwise-v2
+phase: apply-ready
+artifact_store: plans
+artifacts:
+  proposal: done
+  specs: done
+  design: done
+  tasks: done
+scope_patch: harden-runner deferred to separate post-v2 change
+review_workload:
+  estimated_loc: 660
+  budget_risk: High
+  chained_prs_recommended: Yes
+  chain_strategy: feature-branch-chain
+  decision_needed_before_apply: resolved
+delivery: feature-branch-chain on main checkout
+tracker_branch: shardwise-v2-tracker
+pr_branches:
+  - shardwise-v2/pr-1-tier1b-tests (PR 1, base tracker)
+  - shardwise-v2/pr-2-generate-weights (PR 2, base pr-1)
+  - shardwise-v2/pr-3-buildservice-split (PR 3, base pr-2)
+  - shardwise-v2/pr-4-catalog (PR 4, base pr-3)
+  - shardwise-v2/pr-5-docs (PR 5, base pr-4)
+last_updated: 2026-07-18

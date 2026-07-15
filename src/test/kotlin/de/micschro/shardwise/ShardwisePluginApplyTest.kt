@@ -1,7 +1,8 @@
 package de.micschro.shardwise
 
-import de.micschro.shardwise.internal.ShardBuildService
+import de.micschro.shardwise.internal.ShardPlannerService
 import de.micschro.shardwise.internal.TestWeights
+import de.micschro.shardwise.PlanDetail
 import org.gradle.api.Project
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -39,6 +40,7 @@ class ShardwisePluginApplyTest {
         val ext = root.extensions.getByType(ShardwiseExtension::class.java)
         assertEquals(TestWeights.DEFAULT_WEIGHT, ext.defaultWeight.get())
         assertEquals(setOf("test"), ext.taskNames.get())
+        assertEquals(PlanDetail.FULL, ext.planDetail.get())
         assertTrue(!ext.weightsFile.isPresent, "weights file must be optional")
     }
 
@@ -53,7 +55,7 @@ class ShardwisePluginApplyTest {
         b.pluginManager.apply("java")
 
         val params = root.gradle.sharedServices.registrations
-            .getByName("de.micschro.shardwise.plan").parameters as ShardBuildService.Params
+            .getByName("de.micschro.shardwise.planner").parameters as ShardPlannerService.Params
         val paths = params.taskModulePaths.get().getValue("test")
         assertEquals(setOf(".", "a/b"), paths.toSet(), "root → '.', :a:b → 'a/b', :a has no test task")
     }
@@ -65,7 +67,7 @@ class ShardwisePluginApplyTest {
         root.extensions.getByType(ShardwiseExtension::class.java)
             .taskNames.set(setOf("integrtionTest")) // typo scenario
         val params = root.gradle.sharedServices.registrations
-            .getByName("de.micschro.shardwise.plan").parameters as ShardBuildService.Params
+            .getByName("de.micschro.shardwise.planner").parameters as ShardPlannerService.Params
         assertEquals(mapOf("integrtionTest" to emptyList<String>()), params.taskModulePaths.get())
     }
 
@@ -76,9 +78,18 @@ class ShardwisePluginApplyTest {
         root.extensions.getByType(ShardwiseExtension::class.java)
             .taskNames.set(setOf("build"))
         val params = root.gradle.sharedServices.registrations
-            .getByName("de.micschro.shardwise.plan").parameters as ShardBuildService.Params
+            .getByName("de.micschro.shardwise.planner").parameters as ShardPlannerService.Params
         // Lifecycle tasks like "build" have no Test tasks beneath them in subprojects.
         // The plugin maps them to empty modules — same as any unmatched task name.
         assertEquals(mapOf("build" to emptyList<String>()), params.taskModulePaths.get())
+    }
+
+    @Test
+    fun `generateTestWeights is registered on the root project`() {
+        val root = root()
+        root.pluginManager.apply(ShardwisePlugin::class.java)
+        val task = root.tasks.findByName("generateTestWeights")
+        assertTrue(task != null, "expected 'generateTestWeights' task on root project")
+        assertEquals("Shardwise", task!!.group)
     }
 }

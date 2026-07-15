@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 micschr0
+
 package de.micschro.shardwise.internal
 
 /**
@@ -25,7 +28,7 @@ internal object TestWeights {
     fun toModules(
         paths: List<String>,
         weights: Map<String, Int>,
-        defaultWeight: Int = DEFAULT_WEIGHT
+        defaultWeight: Int
     ): List<TestModule> =
         paths.map { path -> TestModule(path, weights[path] ?: defaultWeight) }
 }

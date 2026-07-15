@@ -125,11 +125,3 @@ Pass these as environment variables to `run-docker.sh` or with `glci --env`.
   `e2e/consumer/settings.gradle.kts`, not the logs.
 
 ---
-
-Verification:
-[ ] BLUF — outcome in first 2 sentences
-[ ] Mode Purity — exactly one Diátaxis mode (How-to)
-[ ] Concept Budget — ≤3 new concepts per section
-[ ] Examples — ≥1 per concept
-[ ] Anti-patterns — ≥3 "Don't" items
-[ ] Terminology — one term per concept throughout

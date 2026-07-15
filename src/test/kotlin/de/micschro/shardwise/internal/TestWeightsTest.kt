@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 micschr0
+
 package de.micschro.shardwise.internal
 
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -75,6 +78,28 @@ class TestWeightsTest {
         val modules = TestWeights.toModules(paths, weights, defaultWeight = 10)
         assertEquals(TestModule("common/common-domain", 500), modules.first { it.path == "common/common-domain" })
         assertEquals(TestModule("common/common-new", 10), modules.first { it.path == "common/common-new" })
+    }
+
+    @Test
+    fun `empty paths list yields empty modules`() {
+        val modules = TestWeights.toModules(emptyList(), mapOf("a" to 100), defaultWeight = 10)
+        assertEquals(emptyList<TestModule>(), modules)
+    }
+
+    @Test
+    fun `empty weights map yields all-default modules`() {
+        val paths = listOf("a", "b", "c")
+        val modules = TestWeights.toModules(paths, emptyMap(), defaultWeight = 7)
+        assertEquals(3, modules.size)
+        modules.forEach { assertEquals(7, it.weight) }
+    }
+
+    @Test
+    fun `zero defaultWeight yields zero-weight modules still assigned`() {
+        val paths = listOf("a", "b")
+        val modules = TestWeights.toModules(paths, emptyMap(), defaultWeight = 0)
+        assertEquals(2, modules.size)
+        modules.forEach { assertEquals(0, it.weight) }
     }
 
     @Test

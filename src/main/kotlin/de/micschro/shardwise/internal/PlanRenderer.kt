@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 micschr0
+
 package de.micschro.shardwise.internal
 
 import de.micschro.shardwise.PlanDetail
@@ -96,8 +99,7 @@ internal class PlanRenderer(private val ansi: Boolean) {
 
     /** A border row with a title threaded in: `╭─ S H A R D W I S E ───…` or `├─ test ───…`. */
     private fun titledBorder(corner: String, title: String): String {
-        val head = "$corner$HORIZONTAL $title "
-        val fill = HORIZONTAL.repeat((FRAME_WIDTH - head.length).coerceAtLeast(1))
+        val fill = HORIZONTAL.repeat((FRAME_WIDTH - "$corner$HORIZONTAL $title ".length).coerceAtLeast(1))
         return "$INDENT${dim("$corner$HORIZONTAL ")}${bold(title)}${dim(" $fill")}"
     }
 

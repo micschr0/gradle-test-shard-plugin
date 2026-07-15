@@ -8,11 +8,22 @@ Your Gradle build uses `parallel: 3` in GitLab CI plus a hand-maintained per-nod
 
 After this tutorial, your `parallel: 3` line stays; your hand-maintained test list goes. Shardwise uses Greedy-LPT bin-packing against a `test-weights.properties` file to balance the assignment deterministically. The tutorial ends with a coverage assertion proving no module is ever silently lost.
 
+## Contents
+
+- [Subgoal 1 — Capture the current distribution to a baseline](#subgoal-1--capture-the-current-distribution-to-a-baseline)
+- [Subgoal 2 — Apply the Shardwise plugin](#subgoal-2--apply-the-shardwise-plugin)
+- [Subgoal 3 — Generate the weights file](#subgoal-3--generate-the-weights-file)
+- [Subgoal 4 — Verify the coverage invariant](#subgoal-4--verify-the-coverage-invariant)
+- [Subgoal 5 — Tear down the manual sharding](#subgoal-5--tear-down-the-manual-sharding)
+- [Subgoal 6 — Keep the weights fresh (your turn)](#subgoal-6--keep-the-weights-fresh-your-turn)
+- [The sample project we anchor on](#the-sample-project-we-anchor-on)
+
+
 ## The sample project we anchor on
 
 This tutorial uses a 6-module build:
 
-```
+```text
 sample-gradle-build/
 ├── app/                    # 60s of integration tests
 ├── core/                   # 5s of unit tests
@@ -25,11 +36,11 @@ sample-gradle-build/
 
 Total test time serial: ~2167s. With 3 nodes balanced, the target is roughly ~750s per node instead of 2167s — about a third of the wall time.
 
-You don't need a real project this size to follow along. Every step shows the command and the expected output so you can replicate the behaviour on your own build.
+You don't need a project this size to follow along. Every step shows the command and the expected output so you can replicate the behaviour on your own build.
 
 ---
 
-## Subgoal 1 — Capture the current partition to a baseline
+## Subgoal 1 — Capture the current distribution to a baseline
 
 You cannot tell whether your new sharding is correct without something to compare against. Before you change anything, capture what the current build does on each node.
 
@@ -52,7 +63,7 @@ For the sample project, a typical "before" log shows Node 1 doing almost nothing
 
 ### If you see "BUILD FAILED before any test ran"
 
-Your `:test` configuration references `$CI_NODE_INDEX` without handling the unset case. Local runs (`CI_NODE_TOTAL` unset) might still set `$CI_NODE_INDEX` to "1" by default in some CI runners. Run `printenv | grep CI_` first; the output should show both `CI_NODE_INDEX` and `CI_NODE_TOTAL` present or both absent.
+Your `:test` configuration references `$CI_NODE_INDEX` without handling the unset case. Some CI runners set `$CI_NODE_INDEX` to "1" by default even when `CI_NODE_TOTAL` is unset locally.
 
 ---
 
@@ -67,11 +78,11 @@ In your root `build.gradle.kts`:
 ```kotlin
 plugins {
     // ... your existing plugins
-    id("de.micschro.shardwise") version "0.1.0"
+    id("de.micschro.shardwise") version "0.2.0"
 }
 ```
 
-That is the entire plugin configuration for now. No changes to your subproject build files. The plugin discovers `Test` tasks through `configureEach`, attaches its own `onlyIf` per task at execution time, and reads `CI_NODE_INDEX` / `CI_NODE_TOTAL` through a configuration-cache-safe `ValueSource`.
+That is the entire plugin configuration for now. No changes to your module build files. The plugin discovers `Test` tasks through `configureEach`, attaches its own `onlyIf` per task at execution time, and reads `CI_NODE_INDEX` / `CI_NODE_TOTAL` through a configuration-cache-safe `ValueSource`.
 
 Now run the build with the same CI variables:
 
@@ -81,7 +92,7 @@ CI_NODE_INDEX=1 CI_NODE_TOTAL=3 ./gradlew test --info 2>&1 | head -40
 
 Expected output (excerpt):
 
-```
+```text
 :test-app:test SKIPPED
 :core:test SKIPPED
 :common:test SKIPPED
@@ -94,7 +105,7 @@ Notice which tasks ran: shard 1's deterministic plan assigned `:services:checkou
 
 ### If you see "Plugin 'de.micschro.shardwise' not found"
 
-You likely declared `id("de.micschro.shardwise") version "0.1.0"` in `plugins {}` but the plugin portal isn't in your `pluginManagement {}` repositories. Check your `settings.gradle.kts`:
+You likely declared `id("de.micschro.shardwise") version "0.2.0"` in `plugins {}` but the plugin portal isn't in your `pluginManagement {}` repositories. Check your `settings.gradle.kts`:
 
 ```kotlin
 pluginManagement {
@@ -115,48 +126,42 @@ Your test artifacts (JUnit XML files) live in each module's `build/test-results/
 
 ### Worked example, partial scaffolding (one blank to fill)
 
-Here is the generator. You fill in the **one line** that lists the modules your generator should iterate over:
+The generator is a built-in task — there is **no code to write**. The plugin
+ships `generateTestWeights` (registered on the root project). Run it after a
+full test suite:
 
-```python
-# generate-test-weights.py — run from the repo root after a successful ./gradlew test
-import glob, xml.etree.ElementTree as ET
-
-weights = {}
-for f in glob.glob('___FILL_IN_PATH_GLOB___', recursive=True):
-    module = f.split('/build/test-results/')[0]
-    if module == f:  # result lives directly under build/ — root project, key '.'
-        module = '.'
-    weights[module] = weights.get(module, 0) + float(ET.parse(f).getroot().get('time', '0'))
-
-with open('test-weights.properties', 'w') as out:
-    out.write('# generated from junit xml timings (millis)\n')
-    for m, t in sorted(weights.items(), key=lambda kv: -kv[1]):
-        out.write(f'{m}={int(t * 1000)}\n')
+```bash
+./gradlew test --no-build-cache
+./gradlew generateTestWeights
 ```
 
-The blank expects a single `glob.glob(...)` call. Hint: in the sample project above, the path pattern is `**/build/test-results/test/TEST-*.xml`.
+The task walks every `Test` task output declared in `taskNames` (default:
+`test`), sums the `time=` attribute per module, and writes a sorted ISO-8859-1
+properties file at the root project. Confirm by:
 
-Run it from the repo root: `python3 generate-test-weights.py`.
-
-**Verify your fill-in:** `cat test-weights.properties` should look like this for the sample project:
-
-```
-# generated from junit xml timings (millis)
-:services:checkout=1200000
-:services:payment=600000
-:services:shipping=300000
-:app=60000
-:core=5000
-:common=2000
+```bash
+cat test-weights.properties
 ```
 
-The values are milliseconds (`:services:checkout=1200000` means 1200 seconds). The list is sorted by descending duration.
+**Verify your fill-in:** `cat test-weights.properties` should look like this for the sample project (the generator writes an automatic `#<date>` line at the top — nothing else in the header):
+
+```properties
+#Thu Jul 17 09:00:00 UTC 2026
+services/checkout=1200000
+services/payment=600000
+services/shipping=300000
+app=60000
+core=5000
+common=2000
+```
+
+The values are milliseconds (`services/checkout=1200000` means 1200 seconds). The list is sorted by descending duration.
 
 ### If you see `weights == {}` (empty file generated)
 
 Two likely causes:
 
-1. **Path glob is wrong.** Run `python3 -c "import glob; print(len(glob.glob('**/build/test-results/test/TEST-*.xml', recursive=True)))"` from the repo root. If it prints `0`, your glob doesn't match your test-result layout.
+1. **No JUnit XMLs were found.** Run `./gradlew clean test --no-build-cache` first; without a fresh test run there are no `**/build/test-results/test/TEST-*.xml` files for the aggregator to walk.
 2. **JUnit XMLs have `time="0"` or are absent.** Wipe the build with `./gradlew clean test` first. Some Gradle versions write `time="0"` when a test task is restored from the build cache; a fresh execution produces real timings.
 
 ---
@@ -164,6 +169,7 @@ Two likely causes:
 ## Subgoal 4 — Verify the coverage invariant
 
 The plugin is applied and `test-weights.properties` is in place. Before removing the old logic, prove that no module is silently skipped across all shards.
+
 ### Worked example (full scaffolding)
 
 Run the build once per shard index. Each run prints the tasks that ran on that shard:
@@ -178,6 +184,7 @@ done
 ```
 
 What to check:
+
 - **Every module appears in exactly one shard's list.** A module in zero shards means the weights file excluded it — rerun the generator and fix the path glob.
 - **The three lists are mutually disjoint.** A module in two shards means the planner is not deterministic. Run `git diff test-weights.properties` between the most recent and previous run; if identical, file an issue with the `--info` logs from all three shards.
 
@@ -214,17 +221,19 @@ tasks.withType<Test>().configureEach {
 
 After: nothing. Shardwise attaches its own `onlyIf` to every matching `Test` task. Your manual one was either a subset or a superset, and Shardwise will fight both.
 
-Search your repo for `CI_NODE_INDEX` and `CI_NODE_TOTAL` — anywhere those names appear in `*.gradle.kts` files, they are candidates for deletion. (They should still appear in your `e2e/` tests and `.gitlab-ci.yml`; those are not the plugin configuration.)
+Search your repo for `CI_NODE_INDEX` and `CI_NODE_TOTAL` — anywhere those names appear in `*.gradle.kts` files, they are candidates for deletion. (They appear in your `e2e/` tests and `.gitlab-ci.yml`; those are not the plugin configuration.)
 
-### If you see "Plugin runs but tests are double-executed"
+### If you see "a task is skipped when both your old onlyIf and Shardwise say run"
 
-the runner skips a task when ANY `onlyIf` returns false.
+The runner skips a task when ANY `onlyIf` returns false. Your old `onlyIf` and Shardwise's both fire: one says "run" (the module is assigned to this node), the other says "skip" (the hash-based condition), and the task skips because Gradle `onlyIf` is an AND — all predicates must allow execution. Delete the `onlyIf { ... }` block (or the entire `tasks.withType<Test>().configureEach { ... }` wrapper) from your build files now; Subgoal 5 walks through that.
 
 ---
 
 ## Subgoal 6 — Keep the weights fresh (your turn)
 
 You now have a one-time weights file. It will drift as your build changes — modules get added, tests get rewritten, slow tests get faster. The migration is incomplete without a job that refreshes the weights on a schedule.
+
+The example below keeps this tutorial self-contained. For the full reference — every transport option (committed file, artifact, cache), both refresh strategies, and the caveats — [Self-updating weights](self-updating-weights.md) is the canonical source.
 
 ### Worked example — GitLab CI (full scaffolding)
 
@@ -234,7 +243,7 @@ update-test-weights:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - ./gradlew test --no-build-cache   # force real execution
-    - python3 generate-test-weights.py
+    - ./gradlew generateTestWeights
     - |
       if ! git diff --quiet test-weights.properties; then
         git add test-weights.properties
@@ -253,49 +262,10 @@ Adapt the above to your CI provider. The schema is fixed:
 2. Regenerate `test-weights.properties`.
 3. Open a PR (or push to a follow-up branch) **only when the file changed** — the `git diff --quiet` gate is what stops empty commits.
 
-**Verify your adaptation:** running the adapted pipeline once should produce a commit with a non-empty diff, and the resulting shard plan must still match what you verified in Subgoal 4 (same module-to-node assignment for unchanged modules). The diff is acceptable as long as the affected modules balance better than they did before.
+**Verify your adaptation:** running the adapted pipeline once should produce a commit with a non-empty diff, and the resulting plan must still match what you verified in Subgoal 4 (same module-to-node assignment for unchanged modules). The diff is acceptable as long as the affected modules balance better than they did before.
 
 Hint: GitHub Actions uses `peter-evans/create-pull-request@v6`; Buildkite uses `parallelism: 1` with a single scheduled trigger; CircleCI uses `cron` schedules and `workflows.<job-name>.filters.branches`.
 
 ### If you see "the refresh job always pushes an empty commit"
 
 Your script regenerates the file but does not check whether it actually changed before pushing. The `if ! git diff --quiet` block is the gate — keep it. Without it, every scheduled run produces a no-op commit that pollutes the git history.
-
----
-
-## Verification
-
-- Running each shard index in turn and collecting the SKIPPED-onlyIf lines (or all `:test` task names) yields three lists that partition the full module set (no module appears twice; no module is missing).
-
-- `git grep -nE 'CI_NODE_INDEX|CI_NODE_TOTAL' -- '*.gradle.kts'` returns no matches in your Gradle build files.
-- Running each shard index in turn and collecting the `PASSED` or `FAILED` tasks yields three lists that partition the full module set (no module appears twice; no module is missing).
-- The slowest shard's wall time is within ~1.5× the fastest shard's wall time. (Tighter than that means your weights file is stale; looser than that means you are still running into a hot module that the planner cannot split.)
-
-If all three pass, you have migrated cleanly. The plugin enforces coverage; you stop maintaining the test list by hand.
-
----
-
-## Don't
-
-- Don't keep a hand-maintained per-node test list "just in case" — Shardwise will fight it. The two `onlyIf` predicates compose unpredictably.
-- Don't use Gradle APIs newer than 8.11 in `src/main` of any plugin that depends on Shardwise — version skew breaks the configuration-cache invalidation signal.
-- Don't read `System.getenv("CI_NODE_INDEX")` from your custom Gradle code — that bypasses Shardwise's `ValueSource` and bakes one node's index into the cache entry. Use `NodeEnvValueSource` if you need the value at configuration time.
-- Don't commit `test-weights.properties` from a CI runner whose clock is off by more than a few minutes — the `time=` attribute in JUnit XML drifts and the next refresh looks like a real change.
-
----
-
-Tutorial Verification:
-[ ] Need-First — sections open with reader problem
-[ ] Worked Example — complete annotated example shown first
-[ ] Fading — scaffolding depth varies full → partial → independent
-[ ] Subgoal Labels — descriptive, not just "Step N"
-[ ] Error Recovery — inline error paths, not appendix
-[ ] Zero-Copy — at least one active writing task
-
-Documentation Verification:
-[ ] BLUF — outcome in first 2 sentences
-[ ] Mode Purity — exactly one Diátaxis mode (Tutorial)
-[ ] Concept Budget — ≤3 new concepts per section
-[ ] Examples — ≥1 per concept
-[ ] Anti-patterns — ≥3 "Don't" items
-[ ] Terminology — one term per concept throughout
