@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 micschr0
-
 package de.micschro.shardwise
 
 import org.gradle.api.file.RegularFileProperty

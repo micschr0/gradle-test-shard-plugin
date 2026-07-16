@@ -1,3 +1,5 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # Contributing to Shardwise
 
 How to build, test, and submit changes while keeping the public API, coverage
@@ -74,15 +76,6 @@ providers). Every functional test asserts that the configuration cache engages
 Main sources compile against `gradle-api:8.11` (`compileOnly`). Don't use Gradle
 APIs newer than 8.11 in `src/main`.
 
-### Step 3e — Breaking changes and deprecation
-
-Pre-1.0 versions may break the public API between minor versions (per
-`0.y.z` SemVer). Once the API reaches `1.0`, breaking changes follow a
-deprecation cycle: the old API is marked `@Deprecated` in one minor release,
-documented in `CHANGELOG.md`, and removed no earlier than the next major
-release. The deprecation always names the replacement API. If no clean
-replacement exists, the removal is deferred until one does.
-
 ## Step 4 — Submit a PR
 
 - Keep PRs focused: one logical change per PR.
@@ -114,3 +107,4 @@ reproducer.
 - **Don't use Gradle APIs newer than 8.11 in `src/main`.** Main sources compile
   against `gradle-api:8.11` (`compileOnly`). A newer API will fail at runtime
   for consumers on 8.11.
+

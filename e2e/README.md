@@ -1,3 +1,5 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # End-to-end tests
 
 Proves the guarantees that unit and TestKit tests structurally cannot: that N **separate processes**, in **separate containers**, each derive the *same* shard plan and each runs its share of it — and that a failing test still turns the pipeline red.
@@ -125,3 +127,5 @@ Pass these as environment variables to `run-docker.sh` or with `glci --env`.
   `e2e/consumer/settings.gradle.kts`, not the logs.
 
 ---
+
+

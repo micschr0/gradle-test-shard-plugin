@@ -1,14 +1,9 @@
+<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
+
 # Troubleshooting sharded builds
 
 Diagnose and fix a sharded CI build where modules skip on all nodes or duplicate across nodes.
 
-## Table of contents
-
-- [Step 1 — Reproduce locally](#step-1--reproduce-locally)
-- [Step 2 — Diagnose "ran on zero nodes"](#step-2--diagnose-ran-on-zero-nodes)
-- [Step 3 — Retry semantics](#step-3--retry-semantics)
-- [Step 4 — JaCoCo aggregation](#step-4--jacoco-aggregation)
-- [Step 5 — Plan inspection](#step-5--plan-inspection)
 
 ## Prerequisites
 
@@ -39,7 +34,7 @@ for i in $(seq 1 "$N"); do
     echo "=== Shard $i of $N ==="
     CI_NODE_INDEX=$i CI_NODE_TOTAL=$N ./gradlew test --info 2>&1 |
         grep -E "Skipping task '.+' as task onlyIf" |
-        grep -oE ":[a-zA-Z0-9:_-]+:test" |
+        sed "s/.*Skipping task '\([^:]*:[^:]*\):.*/\1/" |
         sort -u > "/tmp/shard-$i.tasks"
     echo "  Tasks skipped on this node: $(wc -l < "/tmp/shard-$i.tasks")"
 done
@@ -59,28 +54,19 @@ echo "=== Determinism check complete ==="
 ```
 
 **What to look for:**
-
 - No task prints `FAIL` — every module runs on exactly one shard.
-- The `grep -oE` expression extracts the full task path (`:services:checkout:test`),
-  keeping every segment. Adjust the pattern if your task names end in something
-  other than `:test`.
-- The shard dump at [Step 5](#step-5--plan-inspection) gives a faster, cleaner
-  check (no parsing needed, and it proves the *plan* matches, not just the
-  execution outcome).
+- The `sed` expression strips task names (`:services:checkout:test` →
+  `:services:checkout:test`), keeping the full Gradle task path. Adjust the
+  capture group if your task names are deeper or use different separators.
+The shard dump at `[Step 5](#step-5--plan-inspection)`
+  gives a faster, cleaner check (no parsing needed, and it proves the *plan*
+  matches, not just the execution outcome).
 
 ## Step 2 — Diagnose "ran on zero nodes"
 
 A module that neither runs nor skips on any node means the plugin never saw it,
-or every node decided it belongs elsewhere. Five causes produce this symptom —
-find yours in the table, then jump to its section for the check and fix.
-
-| Cause | Tell-tale sign |
-|-------|----------------|
-| [Divergent weights](#divergent-weights) | Weights file differs across nodes (different hash) |
-| [Missing CI vars](#missing-ci_node_index--ci_node_total) | `CI_NODE_INDEX`/`CI_NODE_TOTAL` unset on one node |
-| [Stale build cache](#build-cache-restores-stale-from-cache-timing) | Every node shows `FROM-CACHE` for every test task |
-| [Clock-skewed weights](#ci-runner-clock-skewed-weights) | Weights file changes with no code/timing change |
-| [Path collision](#project-path-collision) | Two modules share one Gradle project path |
+or every node decided it belongs elsewhere. Each cause has a specific string to
+check.
 
 ### Divergent weights
 
@@ -205,10 +191,13 @@ re-dispatches a single matrix cell.
 
 ## Step 4 — JaCoCo aggregation
 
-JaCoCo coverage is per-shard. To produce one aggregated report, merge the
-`.exec` files from all nodes in a post-shard collect job. The following shell
-snippet runs in a single job that has access to all nodes' `.exec` files (via
-pipeline artifacts or shared storage):
+Shardwise runs each module's test task on exactly one node. JaCoCo instruments
+those tasks normally, but on the other nodes `jacocoTestReport` skips because
+the execution data file is missing. Aggregated reports and threshold checks must
+therefore merge `.exec` files from all nodes in a post-shard collect job.
+
+The following shell snippet runs in a single job that has access to all nodes'
+`.exec` files (via pipeline artifacts or shared storage):
 
 ```bash
 #!/usr/bin/env bash
@@ -216,10 +205,9 @@ pipeline artifacts or shared storage):
 set -euo pipefail
 
 JACOCO_VERSION=0.8.12
-JACOCO_CLI_JAR=/tmp/jacococli.jar
-JACOCO_CLI="java -jar $JACOCO_CLI_JAR"
+JACOCCO_CLI="java -jar /tmp/jacococli.jar"
 
-if [ ! -f "$JACOCO_CLI_JAR" ]; then
+if [ ! -f "$JACOCCO_CLI" ]; then
     curl -sL "https://repo1.maven.org/maven2/org/jacoco/jacococli/${JACOCO_VERSION}/jacococli-${JACOCO_VERSION}.zip" \
         -o /tmp/jacococli.zip
     unzip -q -o /tmp/jacococli.zip jacococli.jar -d /tmp
@@ -234,13 +222,13 @@ if [ ${#exec_files[@]} -eq 0 ]; then
 fi
 
 # Merge into a single aggregate .exec
-$JACOCO_CLI merge "${exec_files[@]}" \
+java -jar /tmp/jacococli.jar merge "${exec_files[@]}" \
     --destfile merged.exec
 
 # Generate an aggregated HTML report
 # Requires class-files and source-files from each module;
 # adjust paths to match your project layout.
-$JACOCO_CLI report merged.exec \
+java -jar /tmp/jacococli.jar report merged.exec \
     --classfiles build/classes/java/main \
     --sourcefiles src/main/java \
     --html jacoco-aggregate-report/
@@ -287,3 +275,24 @@ nodes derived different plans — investigate divergent inputs (see
 
 An idle node (zero modules assigned) still gets a line like `3=` — the node
 count is provable from the dump alone.
+
+## Don't
+
+- Don't retry a single failed shard node and call the pipeline green — the
+  partial pass lacks a coordinated run across all nodes (see
+  [Step 3](#step-3--retry-semantics)).
+- Don't let each CI node regenerate weights from its own JUnit XML timings —
+  clock skew, stale cache entries, or different git refs produce divergent
+  weights files, which produce divergent plans (see
+  [Step 2 — Divergent weights](#divergent-weights)).
+- Don't configure `jacocoTestReport` as a per-shard task that gates the
+  pipeline — a single node's report sees partial coverage, causing false
+  threshold failures. Merge execution data in a collect job instead (see
+  [Step 4](#step-4--coverage-tools-jacoco)).
+- Don't share a configuration-cache entry across CI nodes — the cached plan
+  from the first node overrides the plan every other node would derive, making
+  every node run the same modules.
+- Don't grep for `SKIPPED` vs `PASSED` to confirm coverage — a skipped task
+  does not appear in test-output logs; grep the `--info`-level `Skipping task`
+  line instead (see [Step 1](#step-1--prove-determinism-locally)).
+

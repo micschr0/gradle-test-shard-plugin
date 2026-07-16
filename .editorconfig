@@ -2,9 +2,6 @@ root = true
 
 [*]
 charset = utf-8
-# Disable all ktlint rules by default; enable only no-unused-imports below.
-ktlint_standard = disabled
-ktlint_standard_no-unused-imports = enabled
 end_of_line = lf
 indent_style = space
 indent_size = 4

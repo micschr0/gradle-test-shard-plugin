@@ -14,7 +14,7 @@ body:
     attributes:
       label: Plugin version
       description: The `de.micschro.shardwise` version applied in your build.
-      placeholder: "0.2.0"
+      placeholder: "0.1.0"
     validations:
       required: true
 
