@@ -2,19 +2,18 @@ name: CI
 
 on:
   push:
-    branches: [master]
-    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
+    branches: [main]
+    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE"]
   pull_request:
-    branches: [master]
-    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "**.md"]
+    branches: [main]
+    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# Both jobs only read the repo; nothing here pushes, comments, or releases.
-permissions:
-  contents: read
+# Per-job permissions below (deny-all top-level).
+permissions: {}
 
 env:
   GLCI_VERSION: v0.6.0
@@ -25,10 +24,15 @@ env:
 jobs:
   # ── fast feedback: unit + functional + apiCheck (~30s) ──────────────────
   check:
+    name: Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
@@ -37,7 +41,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
 
       - name: ShellCheck
@@ -57,6 +61,11 @@ jobs:
       # plan on purpose and assert the suite goes red for every kind of break.
       - name: Mutation-test the e2e suite
         run: bash e2e/scripts/mutation-test.sh
+
+      # The pure planner and weights parser are testable without Docker — break
+      # them on purpose here, cheaper than the full e2e mutation suite.
+      - name: Mutation-test the pure core
+        run: bash e2e/scripts/mutation-test-core.sh
 
       # Catch a broken pipeline definition in seconds, before the e2e jobs spend
       # minutes discovering it. Also asserts `parallel:` still expands as expected.
@@ -89,6 +98,8 @@ jobs:
   e2e-glci:
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -134,6 +145,8 @@ jobs:
     name: "e2e ${{ matrix.id }}: ${{ matrix.name }}"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:

@@ -1,19 +1,21 @@
 plugins {
     id("java-gradle-plugin")
-    kotlin("jvm") version "2.4.0"
-    id("io.gitlab.arturbosch.detekt") version "1.23.8"
-    id("org.jetbrains.kotlinx.binary-compatibility-validator") version "0.18.1"
-    id("com.gradle.plugin-publish") version "2.1.1"
+    alias(libs.plugins.kotlinJvm)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.binaryCompatibilityValidator)
+    alias(libs.plugins.pluginPublish)
+    alias(libs.plugins.kover)
 }
 
 group = "de.micschro"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     explicitApi()
     jvmToolchain(17)
     compilerOptions {
-        freeCompilerArgs.addAll("-Xjvm-default=all", "-Xjsr305=strict")
+        freeCompilerArgs.addAll("-jvm-default=enable", "-Xjsr305=strict")
     }
 }
 
@@ -60,8 +62,8 @@ gradlePlugin {
             id = "de.micschro.shardwise"
             implementationClass = "de.micschro.shardwise.ShardwisePlugin"
             displayName = "Shardwise"
-            description = "Shards a multi-module build's test tasks across parallel CI nodes via Greedy-LPT."
-            tags = listOf("ci", "testing", "sharding", "parallel", "gitlab")
+            description = "Shards a multi-module build's test tasks across parallel CI nodes via Greedy-LPT. Requires Gradle 8.11+ and Java 17+."
+            tags = listOf("ci", "testing", "sharding", "parallel", "build")
         }
     }
 }
@@ -81,4 +83,17 @@ detekt {
     config.from(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
 }
 
-tasks.named("check") { dependsOn(tasks.named("detekt")) }
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(80)
+            }
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("detekt"))
+    dependsOn(tasks.named("ktlintCheck"))
+}

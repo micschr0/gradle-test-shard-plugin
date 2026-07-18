@@ -5,6 +5,14 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
+
+/** Mirrors the safety-net logic of the production `onlyIf`: unassigned modules default to running. */
+private fun ShardPlan.runsOn(nodeIndex: Int, modulePath: String): Boolean {
+    val plannedSomewhere = assignments.values.any { modulePath in it }
+    if (!plannedSomewhere) return true
+    return assignments[nodeIndex]?.contains(modulePath) == true
+}
+
 class TestShardPlannerTest {
 
     private val planner = TestShardPlanner()

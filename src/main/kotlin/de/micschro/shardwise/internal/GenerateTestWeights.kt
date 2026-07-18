@@ -8,12 +8,10 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.testing.Test
 import org.gradle.work.DisableCachingByDefault
 import java.io.File
 import java.util.Properties
@@ -22,7 +20,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Aggregates JUnit `time=` attributes across a build's `Test` task outputs into
- * the canonical per-module weights file consumed by [ShardBuildService].
+ * the canonical per-module weights file consumed by [ShardPlannerService].
  *
  * Aggregator only: it never starts a test suite. Run `test --no-build-cache`
  * first when timings need to reflect today's CI runner rather than restored
@@ -65,11 +63,6 @@ internal abstract class GenerateTestWeights : DefaultTask() {
     /** Where to write the generated properties file. */
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
-
-    /** Floor for any per-module weight entry: a module that reports a 0 s run
-     *  still gets at least 1 ms so the file carries a positive entry. */
-    @get:Internal
-    val minWeightMillis: Int = 1
 
     @TaskAction
     fun generate() {
@@ -140,7 +133,7 @@ internal abstract class GenerateTestWeights : DefaultTask() {
             .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
         val newProps = Properties()
         for ((module, weightMs) in sortedEntries) {
-            newProps.setProperty(module, weightMs.coerceAtLeast(minWeightMillis).toString())
+            newProps.setProperty(module, weightMs.coerceAtLeast(MIN_WEIGHT_MILLIS).toString())
         }
         return newProps
     }
@@ -191,6 +184,9 @@ internal abstract class GenerateTestWeights : DefaultTask() {
     companion object {
         /** JUnit XML `time` attributes are seconds; weights are stored in milliseconds. */
         private const val MILLIS_PER_SECOND = 1000.0
+
+        /** Floor for any per-module weight entry: a module reporting 0 s still gets at least 1 ms. */
+        private const val MIN_WEIGHT_MILLIS = 1
 
         /**
          * Wire input tracking: each (module, taskName) JUnit XML output

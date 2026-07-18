@@ -35,7 +35,7 @@ ISO-8859-1 properties file (millisecond totals, descending by weight).
 
 The output file maps each module path to its total duration in milliseconds:
 
-```
+```properties
 services/checkout=12450
 common/domain=8300
 common/api=2100
@@ -153,6 +153,7 @@ collect-weights:
   script:
     - ./gradlew generateTestWeights
     - mkdir -p .shardwise && cp test-weights.properties .shardwise/
+```
 
 GitHub Actions example:
 
@@ -229,17 +230,3 @@ original execution. This matters during verification:
 To verify your setup independently of the build cache, run one pipeline with
 `--no-build-cache` and compare the generated `test-weights.properties` against
 your baseline.
-
-## Don't
-
-- Don't read the weights file from a CI cache key that each node resolves
-  independently — caches may serve different states to different runners, and
-  plans will diverge.
-- Don't rely on build-cache hits for fresh timings — `FROM-CACHE` restores
-  JUnit XMLs with their original `time=` attributes, so the generator sees
-  zero change; refresh requires `--no-build-cache` for measurement runs.
-- Don't skip the diff check before committing updated weights — Variant A's job
-  must inspect `git diff --quiet` first; otherwise the commit is empty and the
-  schedule is wasted.
-
----

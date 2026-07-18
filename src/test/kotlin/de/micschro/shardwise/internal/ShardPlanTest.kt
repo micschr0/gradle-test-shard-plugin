@@ -5,6 +5,13 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
+/** Mirrors the safety-net logic of the production `onlyIf`: unassigned modules default to running. */
+private fun ShardPlan.runsOn(nodeIndex: Int, modulePath: String): Boolean {
+    val plannedSomewhere = assignments.values.any { modulePath in it }
+    if (!plannedSomewhere) return true
+    return assignments[nodeIndex]?.contains(modulePath) == true
+}
+
 class ShardPlanTest {
 
     private val planner = TestShardPlanner()
@@ -16,7 +23,10 @@ class ShardPlanTest {
     )
 
     private fun plan(nodeTotal: Int): ShardPlan =
-        planner.plan(TestWeights.toModules(modules, emptyMap()), nodeTotal)
+        planner.plan(
+            TestWeights.toModules(modules, emptyMap(), TestWeights.DEFAULT_WEIGHT),
+            nodeTotal,
+        )
 
     @Test
     fun `every module runs on exactly one node across the full shard set`() {

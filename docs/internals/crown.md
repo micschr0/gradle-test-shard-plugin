@@ -4,9 +4,15 @@
 
 The crown atop the plan dashboard represents the time Shardwise saved. Understanding it keeps you able to maintain the banner without breaking its message.
 
-A gain is a comparison; the drawing has two operands — the serial reference (all shards laid end to end) and the realized build (the same pieces stacked, ending at the slowest shard). The emptiness between the stack's edge and the reference's end **is** the message. Never fill it.
+**The empty space is the message. Never fill it.** The gap between where the
+stack ends and where the serial reference ends is the time Shardwise saved —
+an absence, drawn as an absence.
 
-```
+The drawing compares two operands: the serial reference (all shards laid end to
+end) and the realized build (the same pieces stacked, ending at the slowest
+shard). The picture makes the difference between them visible:
+
+```text
   ╭─ S H A R D W I S E ──────────────────────────────────
   │ ██████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒   serial: would have been
   │ ██████████████████████                                   slowest shard = realized edge
@@ -38,16 +44,6 @@ The shard pieces are the three textured segments (█, ▓, ▒) at unequal widt
 | Seam | █ ends at column 22 where ▓ begins | Falls exactly on the realized edge — segment 1 *is* the slowest shard |
 
 The realized edge is the right boundary of the longest shard piece (█ at column 22). It marks the wall time of the slowest CI node. Delta is the empty space from column 22 to column 53 across all three shard rows — that emptiness IS the time saved (absence of the serial tail). The seam is where █ meets ▓; it coincides with the realized edge because the slowest shard sits first in the serial row and at the top of the stack, so the alignment is intentional.
-
-## Don't
-
-- Don't place anything in the delta region — no label, no dots, no hatching. A glyph there turns absence into an object; the message becomes "something occupies this space" instead of "the serial tail was avoided."
-- Don't use `████░░░░` rows — a solid bar with a lighter tail reads as a loading bar, suggesting unfinished work. `░` (U+2591) is banned from the crown entirely.
-- Don't equalize shard lengths — pairwise distinct lengths (minimum difference ≥ 3) that sum to the serial row's width prevent the shape from claiming round-robin, which the planner does not do.
-- Don't move the longest piece off the top — the realized edge must coincide with the first texture seam; the slowest shard stays first in the stack and first in the serial row.
-- Don't close the frame on the right — a right border would wall in the delta; the open edge is what lets the emptiness read as saved time.
-- Don't vary border widths — `PlanRendererTest` asserts top border, divider, and bottom border end flush with the serial row. Content lines are open on the right and may be any length. Count characters, not bytes.
-- Don't use glyphs outside box-drawing, `█▓▒`, and plain ASCII — CI logs have no font guarantee and variable-width output would misalign the geometry.
 
 ## Verification
 

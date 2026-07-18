@@ -15,8 +15,10 @@ the environment. When both are unset (local runs), the plugin is a no-op.
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `taskNames` | `SetProperty<String>` | `setOf("test")` | `Test` task names to shard; each gets its own plan |
+| `weightsFile` | `RegularFileProperty` | none (`test-weights.properties` in the root project) | Per-module timing file; without it every module uses `defaultWeight` (count-based balancing). See [Weights file format](#weights-file-format). |
 | `defaultWeight` | `Property<Int>` | `10` | Weight for modules not in the weights file |
 | `planDetail` | `Property<PlanDetail>` | `FULL` | How much of the plan to log at build start |
+
 ## PlanDetail
 
 `PlanDetail` (import `de.micschro.shardwise.PlanDetail`) controls the dashboard
@@ -53,6 +55,19 @@ common/common-domain=500
   one shard
 - Stale weights shift load but never lose tests
 
+## Inspecting the plan
+
+The plugin has no report task, but it can dump the full plan a node derived to a
+file. Set the `shardwise.planDump` system property to a path:
+
+```bash
+CI_NODE_INDEX=2 CI_NODE_TOTAL=3 ./gradlew test -Dshardwise.planDump=plan.txt
+```
+
+Each sharded task's plan (node → modules) is written to that file. Run it once
+per node index and diff the output to prove all nodes agree on the plan — the
+one check task outcomes alone cannot show. Off unless the property is set.
+
 ## Examples
 
 Generate a weights file from JUnit XML timings with the bundled task:
@@ -78,20 +93,6 @@ plugin decided the module does not belong on this node; `FROM-CACHE` or
 are correct.
 
 **A module ran on zero nodes or on multiple nodes. What happened?**
-Parallel CI nodes reading different weights files cause this. Verify that all
-nodes receive the identical `test-weights.properties` — via a committed file, a
-pipeline artifact, or a cache populated before the parallel stage begins.
-Identical weights always produce identical plans.
-
-## Don't
-
-- Don't rely on the `planDetail` setting to change which tests run on which
-  shard — it controls logging only; `OFF` still shards exactly the same way
-- Don't commit a weights file that was generated with stale test runs — the
-  bin-packer uses whatever weights it receives and will distribute load based
-  on outdated timings until the file is regenerated
-- Don't set `defaultWeight` to a value that makes all modules equal — this
-  eliminates the benefit of weighted bin-packing and degrades to
-  count-based round-robin
-
----
+Usually the parallel nodes read different weights files. See
+[troubleshooting: ran on zero nodes](troubleshooting.md#step-2--diagnose-ran-on-zero-nodes)
+for the full diagnosis and fix.

@@ -1,0 +1,44 @@
+name: Scorecard
+
+# Manual-only while this repository is private. OpenSSF Scorecard's
+# publish_results (badge + REST API) and the SARIF upload to code scanning both
+# require a public repository, so every automated run would go red. Restore the
+# schedule/push triggers below once the repo is public; nothing else needs to
+# change.
+#
+#  push:
+#    branches: [main]
+#  schedule:
+#    - cron: "0 6 * * 4" # Weekly on Thursday 06:00 UTC
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write # upload-sarif
+      id-token: write # publish_results OIDC
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - uses: github/codeql-action/upload-sarif@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3.37.0
+        with:
+          sarif_file: results.sarif

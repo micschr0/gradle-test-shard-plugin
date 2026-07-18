@@ -42,7 +42,7 @@ Confirm the tag date matches `CHANGELOG.md`'s `[0.1.0] - 2026-07-14` entry.
 ### 4. Verify README badges resolve
 
 Confirm the CI badge and Plugin Portal badge in `README.md`. They resolve
-only after the workflow has run once on `master` and the plugin is published.
+only after the workflow has run once on `main` and the plugin is published.
 
 ### 5. Confirm Renovate is active
 
@@ -82,18 +82,6 @@ gh api repos/<owner>/<repo>/git/tags/<object.sha>
 - [ ] Renovate has created its first dependency PR
 - [ ] Secrets history scan is clean on latest commits
 
-## Don't
-
-- Don't delete and re-push the `v*` tag if the release workflow fails — the
-  fix is usually missing secrets or a red `check`; re-run from Actions or
-  publish manually with `./gradlew publishPlugins`.
-- Don't cut a tag on a date that doesn't match `CHANGELOG.md`'s entry date —
-  the tag date is canonical history; update the CHANGELOG first if the schedule
-  slips.
-- Don't make the repository public before re-running the secrets history scan
-  if new commits have landed since the last scan — cache leaks or accidentally
-  committed keys will be exposed on first push.
-
 ## Appendix (historical context — not part of the checklist)
 
 ### Formatter deferral (detekt-formatting)
@@ -115,7 +103,7 @@ alternatives such as spotless+ktlint with its own zero-diff check.
 `./gradlew check --warning-mode all` under Gradle 9.6.1 reports one remaining
 deprecation warning:
 
-```
+```text
 The ReportingExtension.file(String) method has been deprecated. This is
 scheduled to be removed in Gradle 10.
 ```
@@ -124,4 +112,3 @@ Traced via `--stacktrace` to `io.gitlab.arturbosch.detekt.DetektPlugin.apply`
 (detekt 1.23.8's own plugin application code, not this project's build
 scripts). This is upstream-owned; no workaround is applied in this repo. Bump
 detekt if a future release resolves it upstream.
-

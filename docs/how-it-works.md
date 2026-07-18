@@ -94,7 +94,7 @@ There is no coordinator. Each of the N parallel nodes independently computes the
 
 ## Architecture: pure core, thin glue
 
-```
+```text
 src/main/kotlin/de/micschro/shardwise/
 ├── ShardwisePlugin.kt            Gradle glue (public)
 ├── ShardwiseExtension.kt         configuration surface (public)
@@ -114,7 +114,7 @@ flowchart TB
         PLG["ShardwisePlugin"]
         VS["NodeEnvValueSource<br/>(only System.getenv access)"]
         BS["ShardBuildService<br/>(one lazy plan per build)"]
-        TT["every matching Test task<br/>onlyIf 'assigned to this shard'"]
+        TT["every matching Test task<br/>onlyIf 'Shardwise node N/M'"]
     end
     subgraph pure["Pure core — no Gradle types"]
         TW["TestWeights<br/>parse weights file"]
@@ -181,7 +181,7 @@ The trade-off: dependencies of a skipped test task (e.g. `testClasses`) may stil
 The plugin has no report task; the assignment is visible through task outcomes:
 
 - Skipped modules show `SKIPPED` in the console output (see the sample in the README).
-- `./gradlew test --info` prints the reason: `Skipping task ':mod-a:test' as task onlyIf 'assigned to this shard' is false.`
+- `./gradlew test --info` prints the reason: `Skipping task ':mod-a:test' as task onlyIf 'Shardwise node 2/3' is false.` (the reason shows the actual node and total).
 - Inspecting the full plan means running the build once per node index — setting `CI_NODE_INDEX` to each value `1..N` in turn and comparing which test tasks execute.
 
 ## Scope and known limitations
@@ -190,12 +190,12 @@ The plugin has no report task; the assignment is visible through task outcomes:
 - **Only `Test` tasks.** `taskNames` matches `org.gradle.api.tasks.testing.Test` tasks by name. Lifecycle tasks (`build`, `check`) are empty containers — skipping the container would not skip the work it depends on, so generalising to arbitrary task types needs validation first (planned for a later release).
 - **Composite builds.** `includeBuild` builds have their own `Gradle` instance; their test tasks are not seen by the plugin and simply run on every node (coverage is preserved, work is duplicated).
 - **Android.** Variant test tasks (`testDebugUnitTest`, …) are `Test` tasks and can be listed in `taskNames` explicitly; there is no variant-aware matching.
-- **Coverage tools (JaCoCo).** Sharding itself is unaffected — JaCoCo instruments existing `Test` tasks. But each module's execution data (`.exec`) is produced only on the node that ran it; on the other nodes `jacocoTestReport` has no execution data and is skipped. Aggregated reports and threshold checks (`jacocoTestCoverageVerification`, SonarQube gates) must therefore run in a collect job that merges the execution data or XML reports of *all* nodes — per-node checks would see partial coverage and fail. Use the same artifact pattern as for JUnit XML results.
-
-## Don't
-
-- Don't introduce task-level sorting outside `TestShardPlanner` — the LPT sort is total (weight desc, path asc tie-break). Any secondary sort elsewhere breaks determinism: a different module order means a different plan on one node.
-- Don't access `System.getenv` outside `NodeEnvValueSource` — direct env access at Gradle configuration time bakes one node's CI index into the configuration-cache entry, causing every node to see the same cached plan.
-- Don't bypass the `ValueSource` in a refactor for "convenience" — CC safety depends on the environment variables being tracked inputs. An untracked env read is a cache-poisoning bug.
-- Don't place weight-reconciliation logic in the Gradle glue layer — the separation between pure core and Gradle glue is deliberate; mixing them prevents unit testing the planning logic in isolation.
-
+- **Coverage tools (JaCoCo).** Sharding itself is unaffected — JaCoCo
+  instruments existing `Test` tasks. The catch is *where* the data lands:
+  - Each module's execution data (`.exec`) is produced only on the node that ran
+    it. On the other nodes `jacocoTestReport` has no data and is skipped.
+  - Aggregated reports and threshold checks (`jacocoTestCoverageVerification`,
+    SonarQube gates) must run in a **collect job** that merges the `.exec` (or
+    XML) data of *all* nodes — a per-node check sees partial coverage and fails.
+  - Use the same artifact pattern as for JUnit XML results. See
+    [troubleshooting](troubleshooting.md) for a ready-made merge script.

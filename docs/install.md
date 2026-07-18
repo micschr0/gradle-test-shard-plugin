@@ -47,6 +47,20 @@ The plugin reads `CI_NODE_INDEX` and `CI_NODE_TOTAL` (1-based) from the environm
 
 Every provider maps its own parallelism variables to `CI_NODE_INDEX` and `CI_NODE_TOTAL`. GitLab CI sets both automatically; other providers require explicit mapping (0- vs 1-based indices).
 
+Find your provider, then jump to its section for a copy-paste config block. The
+plugin always wants a **1-based** index — where the native index is 0-based, add 1.
+
+| Provider | Native index → `CI_NODE_INDEX` | Native total → `CI_NODE_TOTAL` |
+|----------|-------------------------------|-------------------------------|
+| [GitLab CI](#gitlab-ci) | `CI_NODE_INDEX` (1-based, automatic) | `CI_NODE_TOTAL` (automatic) |
+| [GitHub Actions](#github-actions) | `matrix.shard` (you define) | you define |
+| [CircleCI](#circleci) | `CIRCLE_NODE_INDEX` + 1 | `parallelism:` (set as env) |
+| [Buildkite](#buildkite) | `BUILDKITE_PARALLEL_JOB` + 1 | `BUILDKITE_PARALLEL_JOB_COUNT` |
+| [Bitbucket](#bitbucket-pipelines) | `BITBUCKET_PARALLEL_STEP` + 1 | `BITBUCKET_PARALLEL_STEP_COUNT` |
+| [Azure DevOps](#other-providers) | `System.JobPositionInPhase` (1-based) | `System.TotalJobsInPhase` |
+| [Jenkins](#other-providers) | build parameter (you define) | you define |
+| [Travis CI](#other-providers) | build-matrix var (you define) | you define |
+
 ### GitLab CI
 
 GitLab sets both variables automatically with `parallel:`:
@@ -104,7 +118,7 @@ jobs:
 
 ### Buildkite
 
-Buildkite uses `parallelism:` for total nodes and `BUILDKITE_PARALLEL_JOB` (0-based) for the index. Add 1 to convert:
+Buildkite uses `parallelism:` for total nodes and `BUILDKITE_PARALLEL_JOB` (0-based) for the index. Add 1 to convert. Escape every `$` as `$$` — Buildkite interpolates single `$` at pipeline-upload time, so runtime expansion needs the doubled form:
 
 ```yaml
 # .buildkite/pipeline.yml
@@ -112,8 +126,8 @@ steps:
   - label: ":test: Test shard"
     parallelism: 3
     command: >-
-      CI_NODE_INDEX=$((BUILDKITE_PARALLEL_JOB + 1))
-      CI_NODE_TOTAL=$BUILDKITE_PARALLEL_JOB_COUNT
+      CI_NODE_INDEX=$$((BUILDKITE_PARALLEL_JOB + 1))
+      CI_NODE_TOTAL=$$BUILDKITE_PARALLEL_JOB_COUNT
       ./gradlew test
 ```
 
@@ -220,14 +234,11 @@ done
 
 Every shard must skip some modules and run others. No module should be skipped on every shard or run on multiple shards.
 
-To verify distribution in a script:
+## Disabling and uninstalling
 
-```bash
-grep -E "(SKIPPED|PASSED|UP-TO-DATE|FROM-CACHE)" build.log
-```
+- **Disable temporarily.** Leave `CI_NODE_INDEX` and `CI_NODE_TOTAL` unset (or set `CI_NODE_TOTAL=1`). With no sharding variables, the plugin is a no-op — every test task runs normally. This is also why local builds are never sharded.
+- **Uninstall.** Remove the `id("de.micschro.shardwise")` line from the root `plugins {}` block and delete the `shardwise {}` extension block. No other build files reference the plugin; module builds are untouched.
 
-## Don't
+## Upgrading
 
-- Don't apply the plugin to modules. Only the root project declares `shardwise`; module test tasks are discovered automatically
-- Don't let parallel nodes read weights from independent caches. Use a committed file, a shared artifact, or a pre-seeded cache populated before the parallel stage starts
-- Don't set `CI_NODE_INDEX` or `CI_NODE_TOTAL` for local development unless you mean to simulate a shard. With both unset, the plugin is a no-op — all tests run normally
+Shardwise is pre-1.0 and does not promise SemVer compatibility. Before bumping the version, read the [CHANGELOG](../CHANGELOG.md) — it is the authoritative record of breaking changes.
