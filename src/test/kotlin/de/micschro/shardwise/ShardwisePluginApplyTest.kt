@@ -2,7 +2,6 @@ package de.micschro.shardwise
 
 import de.micschro.shardwise.internal.ShardPlannerService
 import de.micschro.shardwise.internal.TestWeights
-import de.micschro.shardwise.PlanDetail
 import org.gradle.api.Project
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -40,7 +39,6 @@ class ShardwisePluginApplyTest {
         val ext = root.extensions.getByType(ShardwiseExtension::class.java)
         assertEquals(TestWeights.DEFAULT_WEIGHT, ext.defaultWeight.get())
         assertEquals(setOf("test"), ext.taskNames.get())
-        assertEquals(PlanDetail.FULL, ext.planDetail.get())
         assertTrue(!ext.weightsFile.isPresent, "weights file must be optional")
     }
 

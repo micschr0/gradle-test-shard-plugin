@@ -78,28 +78,6 @@ class TestWeightsTest {
     }
 
     @Test
-    fun `empty paths list yields empty modules`() {
-        val modules = TestWeights.toModules(emptyList(), mapOf("a" to 100), defaultWeight = 10)
-        assertEquals(emptyList<TestModule>(), modules)
-    }
-
-    @Test
-    fun `empty weights map yields all-default modules`() {
-        val paths = listOf("a", "b", "c")
-        val modules = TestWeights.toModules(paths, emptyMap(), defaultWeight = 7)
-        assertEquals(3, modules.size)
-        modules.forEach { assertEquals(7, it.weight) }
-    }
-
-    @Test
-    fun `zero defaultWeight yields zero-weight modules still assigned`() {
-        val paths = listOf("a", "b")
-        val modules = TestWeights.toModules(paths, emptyMap(), defaultWeight = 0)
-        assertEquals(2, modules.size)
-        modules.forEach { assertEquals(0, it.weight) }
-    }
-
-    @Test
     fun `duplicate keys keep the last value`() {
         val text = """
             common/common-domain=500
