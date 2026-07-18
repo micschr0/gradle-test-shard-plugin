@@ -14,7 +14,7 @@ After this tutorial, your `parallel: 3` line stays; your hand-maintained test li
 
 This tutorial uses a 6-module build:
 
-```text
+```
 sample-gradle-build/
 ├── app/                    # 60s of integration tests
 ├── core/                   # 5s of unit tests
@@ -83,7 +83,7 @@ CI_NODE_INDEX=1 CI_NODE_TOTAL=3 ./gradlew test --info 2>&1 | head -40
 
 Expected output (excerpt):
 
-```text
+```
 :test-app:test SKIPPED
 :core:test SKIPPED
 :common:test SKIPPED
@@ -136,7 +136,7 @@ cat test-weights.properties
 
 **Verify your fill-in:** `cat test-weights.properties` should look like this for the sample project (the generator writes an automatic `#<date>` line at the top — nothing else in the header):
 
-```properties
+```
 #Thu Jul 17 09:00:00 UTC 2026
 services/checkout=1200000
 services/payment=600000
@@ -151,7 +151,6 @@ The values are milliseconds (`services/checkout=1200000` means 1200 seconds). Th
 ### If you see `weights == {}` (empty file generated)
 
 Two likely causes:
-
 1. **No JUnit XMLs were found.** Run `./gradlew clean test --no-build-cache` first; without a fresh test run there are no `**/build/test-results/test/TEST-*.xml` files for the aggregator to walk.
 2. **JUnit XMLs have `time="0"` or are absent.** Wipe the build with `./gradlew clean test` first. Some Gradle versions write `time="0"` when a test task is restored from the build cache; a fresh execution produces real timings.
 
@@ -160,7 +159,6 @@ Two likely causes:
 ## Subgoal 4 — Verify the coverage invariant
 
 The plugin is applied and `test-weights.properties` is in place. Before removing the old logic, prove that no module is silently skipped across all shards.
-
 ### Worked example (full scaffolding)
 
 Run the build once per shard index. Each run prints the tasks that ran on that shard:
@@ -175,7 +173,6 @@ done
 ```
 
 What to check:
-
 - **Every module appears in exactly one shard's list.** A module in zero shards means the weights file excluded it — rerun the generator and fix the path glob.
 - **The three lists are mutually disjoint.** A module in two shards means the planner is not deterministic. Run `git diff test-weights.properties` between the most recent and previous run; if identical, file an issue with the `--info` logs from all three shards.
 
@@ -260,3 +257,4 @@ Hint: GitHub Actions uses `peter-evans/create-pull-request@v6`; Buildkite uses `
 ### If you see "the refresh job always pushes an empty commit"
 
 Your script regenerates the file but does not check whether it actually changed before pushing. The `if ! git diff --quiet` block is the gate — keep it. Without it, every scheduled run produces a no-op commit that pollutes the git history.
+

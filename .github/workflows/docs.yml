@@ -2,9 +2,9 @@ name: Docs
 
 on:
   push:
-    paths: ["**.md", ".markdownlint.json", ".github/workflows/docs.yml"]
+    paths: ["**.md"]
   pull_request:
-    paths: ["**.md", ".markdownlint.json", ".github/workflows/docs.yml"]
+    paths: ["**.md"]
 
 permissions:
   contents: read
@@ -15,7 +15,6 @@ concurrency:
 
 jobs:
   lint:
-    name: Markdown lint
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -23,12 +22,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: DavidAnson/markdownlint-cli2-action@6bf21b07787794f89a243495939cd651942aeabe # v24.1.0
+      - uses: DavidAnson/markdownlint-cli2-action@28e2f0411e6b77225ed55aa54b0e6750147bb8b0 # v19
         with:
           config: .markdownlint.json
-          # plans/ and docs/_audit are internal working artifacts (SDD notes,
-          # audit baselines) — not consumer-facing docs, not lint-gated.
-          globs: |
-            **.md
-            !plans
-            !docs/_audit
+          globs: "**.md"

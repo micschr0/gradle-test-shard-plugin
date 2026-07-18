@@ -22,7 +22,7 @@ mkdir -p "$backup_dir"
 # path, no harm; on error, it's the safety net.)
 cp "$weights_file" "$backup_dir/TestWeights.kt.orig"
 cp "$planner_file" "$backup_dir/TestShardPlanner.kt.orig"
-# shellcheck disable=SC2329,SC2317 # invoked indirectly via EXIT trap
+# shellcheck disable=SC2329 # invoked indirectly via EXIT trap
 restore_originals() {
   cp "$backup_dir/TestWeights.kt.orig" "$weights_file"
   cp "$backup_dir/TestShardPlanner.kt.orig" "$planner_file"
@@ -45,8 +45,6 @@ mutate_file() {
 apply_and_test() {
   local label="$1" file="$2" orig="$3" mutated="$4"
 
-  printf "%s: " "$label"
-  mutate_file "$file" "$orig" "$mutated"
   set +e
   ./gradlew --no-daemon --console=plain test --tests 'de.micschro.shardwise.internal.*' > /dev/null 2>&1
   local exit_code=$?

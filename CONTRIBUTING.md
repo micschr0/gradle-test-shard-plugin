@@ -116,3 +116,4 @@ reproducer.
 - **Don't use Gradle APIs newer than 8.11 in `src/main`.** Main sources compile
   against `gradle-api:8.11` (`compileOnly`). A newer API will fail at runtime
   for consumers on 8.11.
+

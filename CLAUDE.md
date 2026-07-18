@@ -57,7 +57,7 @@ kover (minBound 80%) + apiCheck + validatePlugins.
 
 Two layers, keep them separated:
 
-```text
+```
 Public API    de.micschro.shardwise         ShardwisePlugin, ShardwiseExtension, PlanDetail
               ────────────────────────────────────────────────────────────────────────────
 Gradle Glue   .internal                     ShardPlannerService, ShardNodeEnvService
@@ -89,7 +89,6 @@ Pure Core     .internal                     TestShardPlanner, TestWeights, PlanR
 
 SDD artifacts live in `plans/` — this is the **single source of truth** (migrated from
 `openspec/` on 2026-07-19). Structure:
-
 - `plans/config.yaml` — stack info, TDD config
 - `plans/2026-07-17-features/<NN-slug>/` — active changes
 - `plans/archive/<YYYY-MM-DD-slug>/` — completed changes
