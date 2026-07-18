@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 micschr0
+
 package de.micschro.shardwise.internal
 
 import de.micschro.shardwise.shardPath
@@ -129,10 +132,10 @@ internal abstract class GenerateTestWeights : DefaultTask() {
      * expects on every JDK.
      */
     private fun toProperties(totals: Map<String, Int>): Properties {
-        val sortedEntries = totals.entries
-            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        // No sorting: Properties.store writes in hashtable order regardless,
+        // and the file is machine-consumed. Deterministic for a fixed key set.
         val newProps = Properties()
-        for ((module, weightMs) in sortedEntries) {
+        for ((module, weightMs) in totals) {
             newProps.setProperty(module, weightMs.coerceAtLeast(MIN_WEIGHT_MILLIS).toString())
         }
         return newProps

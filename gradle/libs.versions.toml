@@ -1,23 +1,30 @@
 [versions]
-kotlin = "2.4.0"
+kotlin = "2.4.10"
 detekt = "1.23.8"
 ktlint = "14.2.0"
 binary-compatibility-validator = "0.18.1"
 plugin-publish = "2.1.1"
+sigstore = "2.2.0"
 gradleApi = "8.11"          # minimum supported Gradle API (binary-compat floor)
-junitBom = "6.1.1"
-junitJupiter = "5.10.2"
+junitBom = "6.1.2"
+# Pinned at 1.9.3 (last release before the Anti-AI clause in 1.10.x; see
+# jqwik.net/release-notes.html). Targets JUnit Platform 1.x, empirically
+# confirmed under junit-bom 6.1.2 (tests green).
+jqwik = "1.9.3"
 kover = "0.9.9"
 
 [libraries]
 gradle-api = { module = "dev.gradleplugins:gradle-api", version.ref = "gradleApi" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junitBom" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 
 [plugins]
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+pluginPublish = { id = "com.gradle.plugin-publish", version.ref = "plugin-publish" }
+sigstore = { id = "dev.sigstore.sign", version.ref = "sigstore" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 binaryCompatibilityValidator = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "binary-compatibility-validator" }
-pluginPublish = { id = "com.gradle.plugin-publish", version.ref = "plugin-publish" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

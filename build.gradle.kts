@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.binaryCompatibilityValidator)
     alias(libs.plugins.pluginPublish)
     alias(libs.plugins.kover)
+    alias(libs.plugins.sigstore)
 }
 
 group = "de.micschro"
@@ -34,18 +35,18 @@ dependencies {
     compileOnly("dev.gradleplugins:gradle-api:8.11")
     // Only for ProjectBuilder tests; does not leak downstream (test configurations are not published).
     testImplementation(gradleApi())
-    testImplementation(platform("org.junit:junit-bom:6.1.1"))
+    testImplementation(platform(libs.junit.bom))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.jqwik)
 }
 
 // Functional (TestKit) suite: real multi-module builds against the published plugin id.
-// java-gradle-plugin applies jvm-test-suite, auto-creating the functionalTest source set
-// and Test task. Custom suites are NOT auto-wired into `check`, so that is added below.
+// Custom suites are NOT auto-wired into `check`, so that is added below.
 testing {
     suites {
         register<JvmTestSuite>("functionalTest") {
-            useJUnitJupiter("6.1.1")
+            useJUnitJupiter(libs.versions.junitBom.get())
             dependencies {
                 implementation(gradleTestKit())
             }
