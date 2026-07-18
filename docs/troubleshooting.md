@@ -4,7 +4,6 @@
 
 Diagnose and fix a sharded CI build where modules skip on all nodes or duplicate across nodes.
 
-
 ## Prerequisites
 
 Reproduce the problem locally before debugging in CI. Set both environment
@@ -54,6 +53,7 @@ echo "=== Determinism check complete ==="
 ```
 
 **What to look for:**
+
 - No task prints `FAIL` — every module runs on exactly one shard.
 - The `grep -oE` expression extracts the full task path (`:services:checkout:test`),
   keeping every segment. Adjust the pattern if your task names end in something

@@ -12,7 +12,7 @@ The drawing compares two operands: the serial reference (all shards laid end to
 end) and the realized build (the same pieces stacked, ending at the slowest
 shard). The picture makes the difference between them visible:
 
-```
+```text
   ╭─ S H A R D W I S E ──────────────────────────────────
   │ ██████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒   serial: would have been
   │ ██████████████████████                                   slowest shard = realized edge

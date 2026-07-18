@@ -103,7 +103,7 @@ alternatives such as spotless+ktlint with its own zero-diff check.
 `./gradlew check --warning-mode all` under Gradle 9.6.1 reports one remaining
 deprecation warning:
 
-```
+```text
 The ReportingExtension.file(String) method has been deprecated. This is
 scheduled to be removed in Gradle 10.
 ```
@@ -112,4 +112,3 @@ Traced via `--stacktrace` to `io.gitlab.arturbosch.detekt.DetektPlugin.apply`
 (detekt 1.23.8's own plugin application code, not this project's build
 scripts). This is upstream-owned; no workaround is applied in this repo. Bump
 detekt if a future release resolves it upstream.
-

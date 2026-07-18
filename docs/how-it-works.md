@@ -94,7 +94,7 @@ There is no coordinator. Each of the N parallel nodes independently computes the
 
 ## Architecture: pure core, thin glue
 
-```
+```text
 src/main/kotlin/de/micschro/shardwise/
 ├── ShardwisePlugin.kt            Gradle glue (public)
 ├── ShardwiseExtension.kt         configuration surface (public)

@@ -35,7 +35,7 @@ ISO-8859-1 properties file (millisecond totals, descending by weight).
 
 The output file maps each module path to its total duration in milliseconds:
 
-```
+```properties
 services/checkout=12450
 common/domain=8300
 common/api=2100

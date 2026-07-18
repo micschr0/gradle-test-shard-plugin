@@ -55,7 +55,7 @@ record of breaking changes.
    A module assigned to the other shard prints a skip line whose `onlyIf`
    reason is the plugin's per-node identifier (e.g. `Shardwise node 1/2`):
 
-   ```
+   ```text
    > Task :mod-a:test SKIPPED
    Skipping task ':mod-a:test' as task onlyIf 'Shardwise node 1/2' is false.
    ```
@@ -145,5 +145,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development setup.
   or shared pipeline artifacts instead
 - Don't use `test.only()` or similar Gradle built-in filtering alongside
   Shardwise — the plugin skips entire modules, not individual tests within them
-
-
