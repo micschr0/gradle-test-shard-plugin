@@ -1,7 +1,14 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
 # Installing Shardwise and sharding tests in CI
 
 Install the Shardwise Gradle plugin and configure your CI pipeline to run test modules in parallel across multiple CI nodes, with every module running on exactly one node and no silent gaps.
+
+- [Prerequisites](#prerequisites)
+- [Step 1 — Apply the plugin](#step-1--apply-the-plugin)
+- [Step 2 — Configure sharded tasks](#step-2--configure-sharded-tasks)
+- [Step 3 — Wire your CI provider](#step-3--wire-your-ci-provider)
+- [Step 4 — Verify the shard assignment](#step-4--verify-the-shard-assignment)
+- [Disabling and uninstalling](#disabling-and-uninstalling)
+- [Upgrading](#upgrading)
 
 ## Prerequisites
 
@@ -18,7 +25,7 @@ Add the plugin to the root project's `build.gradle.kts`:
 ```kotlin
 // build.gradle.kts (root project only)
 plugins {
-    id("de.micschro.shardwise") version "0.1.0"
+    id("de.micschro.shardwise") version "0.2.0"
 }
 ```
 
@@ -27,6 +34,8 @@ plugins {
 The `shardwise {}` extension controls which `Test` tasks to shard and which weights file to use. Add this to the root project:
 
 ```kotlin
+import de.micschro.shardwise.PlanDetail
+
 shardwise {
     // Which Test tasks to shard (default: setOf("test"))
     taskNames.set(setOf("test", "integrationTest"))
@@ -38,8 +47,6 @@ shardwise {
     planDetail.set(PlanDetail.SUMMARY)
 }
 ```
-
-`planDetail` requires `import de.micschro.shardwise.PlanDetail`. It changes console output only — never the distribution.
 
 The plugin reads `CI_NODE_INDEX` and `CI_NODE_TOTAL` (1-based) from the environment. With both unset (local runs), nothing is skipped. When either is set, both must be valid — a non-numeric value or an out-of-range index fails the build immediately. Test tasks not listed in `taskNames` are never skipped, and the root project's own test tasks are sharded like any module (weights key: `.`).
 

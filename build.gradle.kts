@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "de.micschro"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     explicitApi()
@@ -62,8 +62,8 @@ gradlePlugin {
             id = "de.micschro.shardwise"
             implementationClass = "de.micschro.shardwise.ShardwisePlugin"
             displayName = "Shardwise"
-            description = "Shards a multi-module build's test tasks across parallel CI nodes via Greedy-LPT."
-            tags = listOf("ci", "testing", "sharding", "parallel", "gitlab")
+            description = "Shards a multi-module build's test tasks across parallel CI nodes via Greedy-LPT. Requires Gradle 8.11+ and Java 17+."
+            tags = listOf("ci", "testing", "sharding", "parallel", "build")
         }
     }
 }
@@ -81,6 +81,16 @@ tasks.validatePlugins {
 detekt {
     buildUponDefaultConfig = true
     config.from(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
+}
+
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(80)
+            }
+        }
+    }
 }
 
 tasks.named("check") {

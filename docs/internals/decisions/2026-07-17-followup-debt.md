@@ -1,9 +1,4 @@
 # Audit Followup Debt — Durable Spec
-
-> **Mirror note:** A parallel write was attempted at `openspec/changes/audit-followup-debt/{explore,proposal}.md`, but `openspec/` is git-ignored at this repo (`.gitignore`). That folder is agent-local scratch. **This file is the durable, git-tracked equivalent.** The existing `shardwise-generate-weights/` change folder pre-exists locally with the same convention — durable spec lives in `plans/`.
-
-> **Verdict vs `openspec`-format compliance:** locally format-conformant (matches `openspec/changes/<name>/{explore,proposal}.md` pattern). Globally the project convention commits the durable artifact to `plans/` instead. This file follows that convention.
-
 ## Intent
 
 Close the **8 remaining audit findings** from the 2026-07-17 review and the **F1 final-verify** item, in three dependency-tier phases. Cleanup before adding new features.
@@ -117,12 +112,11 @@ None new. All work uses already-declared plugins.
 
 - **Propose:** DONE (2026-07-17)
 - **Spec:** DONE (this file)
-- **Tasks:** Per-item breakdown in §Scope above; per-file tasks in plan-of-records `plans/2026-07-17-features/02-followup-debt/`
+- **Tasks:** Per-item breakdown in §Scope above; per-file tasks in plan-of-records `docs/internals/decisions/02-followup-debt/`
 - **Apply:** Tier 1A + Tier 1B effectively DONE — Tier 1A in commits `6f82e5c`/`8432cba`/`486b883`/`04bf5ec`; Tier 1B in commits `116e081`/`027e9b1`/`d79ac5e`. Remaining: F1-final-verify (mutation script), F3 (zizmor refresh), F5 (catalog migration finalization).
 
 ---
 
 **Date:** 2026-07-17
-**Mirror:** `openspec/changes/audit-followup-debt/{explore,proposal}.md` (local, gitignored)
-**Durable storage:** `plans/2026-07-17-features/02-followup-debt/SPEC.md` (this file)
+**Durable storage:** `docs/internals/decisions/02-followup-debt/SPEC.md` (this file)
 **Convention rationale:** documented in CLAUDE.md per F8 §x.x below.

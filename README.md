@@ -1,11 +1,11 @@
-<!-- authoring-audit: 2026-07-16 BLUF,ModePurity,ConceptBudget,Examples,AntiPatterns,Terminology -->
 # Shardwise — Gradle Plugin for Deterministic Test Sharding
 
 [![CI](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/gradle-plugin-portal/v/de.micschro.shardwise?label=version&color=blue)](https://plugins.gradle.org/plugin/de.micschro.shardwise)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/micschr0/gradle-test-shard-plugin/badge)](https://scorecard.dev/viewer/?uri=github.com/micschr0/gradle-test-shard-plugin)
 [![License](https://img.shields.io/github/license/micschr0/gradle-test-shard-plugin)](LICENSE)
 
-Shardwise balances test suites across parallel CI nodes using Greedy-LPT
+Shardwise balances test suites across parallel CI nodes using Greedy-LPT (Longest Processing Time)
 locally with environment variables and works with any CI provider that sets
 `CI_NODE_INDEX` and `CI_NODE_TOTAL`. No network calls, no data exfiltration,
 and every module runs exactly once.
@@ -14,13 +14,18 @@ Shardwise is pre-1.0 software without a SemVer commitment. The API may change
 between releases before 1.0; the [CHANGELOG](CHANGELOG.md) is the authoritative
 record of breaking changes.
 
-- No network calls — Shardwise reads only `CI_NODE_INDEX` and `CI_NODE_TOTAL`
-  from the environment. Unlike SaaS sharding tools, it has no data exfiltration
-  surface.
-
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [What it does](#what-it-does)
+- [Safety Guarantees](#safety-guarantees)
+- [Documentation](#documentation)
+- [What we're working on](#what-were-working-on)
+- [Compatibility](#compatibility)
+- [Contributing](#contributing)
+- [Common pitfalls](#common-pitfalls)
 ## Features
 
-- **Greedy-LPT bin-packing** — distributes test modules across shards using
+- **Greedy-LPT (Longest Processing Time) bin-packing** — distributes test modules across shards using
   historical timing data for balanced execution
 - **Deterministic planning** — same inputs always produce the same shard
   assignment
@@ -41,7 +46,7 @@ record of breaking changes.
 
    ```kotlin
    plugins {
-     id("de.micschro.shardwise") version "0.1.0"
+     id("de.micschro.shardwise") version "0.2.0"
    }
    ```
 
@@ -55,9 +60,9 @@ record of breaking changes.
    A module assigned to the other shard prints a skip line whose `onlyIf`
    reason is the plugin's per-node identifier (e.g. `Shardwise node 1/2`):
 
-   ```
-   > Task :mod-a:test SKIPPED
-   Skipping task ':mod-a:test' as task onlyIf 'Shardwise node 1/2' is false.
+   ```text
+   > Task :services:checkout:test SKIPPED
+   Skipping task ':services:checkout:test' as task onlyIf 'Shardwise node 1/2' is false.
    ```
 
    A module on this shard runs. With `--info` you see a line like
@@ -73,7 +78,7 @@ record of breaking changes.
 
 Shardwise solves a classic scheduling problem: distribute weighted jobs across
 identical CI nodes so the slowest node finishes as early as possible (minimum
-makespan). It uses Greedy LPT (Longest Processing Time) bin-packing, reading a
+uses Greedy-LPT (Longest Processing Time) bin-packing, reading a
 weights file of per-module historical timings. The planner is deterministic —
 identical inputs always produce identical output. See
 [How it works](docs/how-it-works.md) for the algorithm and design rationale.
@@ -136,7 +141,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development setup.
 
 [Apache-2.0](LICENSE)
 
-## Don't
+## Common pitfalls
 
 - Don't apply the plugin to individual modules — only the root project should declare
   the `shardwise` plugin
@@ -145,5 +150,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development setup.
   or shared pipeline artifacts instead
 - Don't use `test.only()` or similar Gradle built-in filtering alongside
   Shardwise — the plugin skips entire modules, not individual tests within them
-
-

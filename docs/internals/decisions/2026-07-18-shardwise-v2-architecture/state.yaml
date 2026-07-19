@@ -1,6 +1,6 @@
 change: shardwise-v2
 phase: apply-ready
-artifact_store: openspec
+artifact_store: plans
 artifacts:
   proposal: done
   specs: done

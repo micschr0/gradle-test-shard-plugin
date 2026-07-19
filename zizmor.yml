@@ -1,6 +1,4 @@
 rules:
-  persona: pedantic
-
   stale-action-refs:
     ignore:
       - codeql.yml      # codeql-action v3 SHAs are the only immutable ref for private-repo CodeQL
