@@ -13,7 +13,6 @@ reads the same file.
 - [Step 3 — Choose a refresh strategy](#step-3--choose-a-refresh-strategy)
 - [Step 4 — Verify](#step-4--verify)
 
-
 ## Goal
 
 Maintain a weights file whose content is identical across every node of a

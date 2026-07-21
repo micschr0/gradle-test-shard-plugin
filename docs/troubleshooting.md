@@ -71,8 +71,23 @@ echo "=== Determinism check complete ==="
 ## Step 2 — Diagnose "ran on zero nodes"
 
 A module that neither runs nor skips on any node means the plugin never saw it,
-or every node decided it belongs elsewhere. Five causes produce this symptom —
-find yours in the table, then jump to its section for the check and fix.
+or every node decided it belongs elsewhere. Six causes produce this symptom.
+Work down this tree, then jump to the matching section for the check and fix.
+
+```mermaid
+flowchart TD
+    S["module ran on zero nodes"] --> W{"same weights file<br/>hash on every node?"}
+    W -- "no" --> DW["Divergent weights"]
+    W -- "yes" --> E{"CI_NODE_INDEX and<br/>TOTAL set on every node?"}
+    E -- "no" --> MV["Missing CI vars"]
+    E -- "yes" --> C{"every test task<br/>FROM-CACHE?"}
+    C -- "yes" --> SC["Stale build cache"]
+    C -- "no" --> F{"--tests or test.only()<br/>in the pipeline?"}
+    F -- "yes" --> BF["Built-in test filtering"]
+    F -- "no" --> P{"duplicate Gradle<br/>project paths?"}
+    P -- "yes" --> PC["Path collision"]
+    P -- "no" --> CS["Clock-skewed weights"]
+```
 
 | Cause | Tell-tale sign |
 |-------|----------------|

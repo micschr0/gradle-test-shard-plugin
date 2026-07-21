@@ -9,6 +9,7 @@ Ship the next major version of the shardwise plugin by unifying four concurrent 
 ### In Scope
 
 **Tier 1B — audit debt completion (now):**
+
 - **TKIT-IP-003**: Add `isolatedProjectsExpectedFailure` test pinning `withGradleVersion("9.6.1")` asserting failure under `-Dorg.gradle.unsafe.isolated-projects=true`.
 - **TKIT-VER-004**: Add `@ParameterizedTest @ValueSource(strings = ["8.11", "9.6.1", "8.5"])` covering min, current-build, and a midpoint Gradle version.
 - **TKIT-CACHE-005**: Add `cached output is byte-identical` test in `GWTFunctionalTest` asserting XML diff empty on two runs.
@@ -17,21 +18,25 @@ Ship the next major version of the shardwise plugin by unifying four concurrent 
 - **F8 (CLAUDE.md retrospective)**: Append "Audit Lessons (Follow-up Debt)" section listing the 8 open findings + their fix strategies; cross-reference to this OpenSpec change.
 
 **Tier 2 — high-effort hardening (post-Tier 1B):**
+
 - **F2 (JUnit mutation)** in a separate change with explicit architecture decision; the user explicitly noted this needs expert-team council.
 - **F6 (Renovate issue workflow)**: 4th workflow `renovate-digest.yml` cron weekly, posting to a digest GH issue.
 - **GA-HARDEN-005 (deferred to separate change)**: `step-security/harden-runner` adoption deferred until SHA is verified via `gh api repos/step-security/harden-runner/git/refs/tags/v<X.Y.Z>`. Ships in its own change after v2 lands.
 
 **New feature: `shardwiseGenerateWeights` task:**
+
 - New task `shardwiseGenerateWeights` writing a single merged `test-weights.properties` from JUnit XML timings.
 - Pure `internal/` aggregator (JUnit XML parse + module-key derivation + millis render).
 - CC-safe glue registration in `ShardwisePlugin` discovering `Test.reports.junitXml.outputLocation` dirs from `ext.taskNames`.
 - Replace buggy Python in `README.md` and CI recipes in `docs/self-updating-weights.md`.
 
 **BuildService split:**
+
 - Split `ShardBuildService` into two services: `ShardBuildService` (NodeEnv + planner params) and `ShardPlannerService` (planner state).
 - Enables independent CC caches when service count > 1.
 
 **Gradle 9 prep:**
+
 - Verify min API is still 8.11 after dependency moves.
 - Remove any deprecated Gradle APIs in main sources.
 - Test and document `-Dorg.gradle.unsafe.isolated-projects=true` adoption path (TKIT-IP-003 scope extension).
@@ -78,6 +83,7 @@ Introduce `ShardPlannerService` inheriting from `BuildService<ShardPlannerServic
 Verify min API still 8.11 after catalog migration. Remove deprecated APIs (if any). Document `-Dorg.gradle.unsafe.isolated-projects=true` adoption path (already tested by TKIT-IP-003 expansion).
 
 **Locked decisions:**
+
 - One merged weights file summed per module (consistent with README:189).
 - Suite-level timing (identical to current scripts, no user-visible weight change).
 - CAUTION: F2 (JUnit mutation) is out of scope here; the shell-script approach is durable.

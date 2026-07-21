@@ -78,7 +78,7 @@ SHARDWISE_PLAN_ONLY=true ./gradlew test
 
 **Output (per task):**
 
-```
+```text
 [shardwise] PLAN-ONLY mode — no tests will run
 [shardwise] :core → shard 1/3, weight=0ms
 [shardwise] :db → shard 2/3, weight=0ms
@@ -105,18 +105,18 @@ No outputs — pure inspection, safe to add to any build.
 
 **Output (sample):**
 
-```
+```text
 [shardwise] WEIGHTS ANALYSIS
 [shardwise]   modules:   12
-[shardwise]   total:     4820ms
-[shardwise]   mean:      401ms
+[shardwise]   total:     4810ms
+[shardwise]   mean:      400ms
 [shardwise]   median:    180ms
 [shardwise]   p95:       920ms
 [shardwise]   p99:       1840ms
 [shardwise]   imbalance: 4.59x
 [shardwise]
 [shardwise] TOP 10 HEAVIEST
-[shardwise]   1. :reporting 1840ms (38.2%)
+[shardwise]   1. :reporting 1840ms (38.3%)
 [shardwise]   2. :core 920ms (19.1%)
 [shardwise]   3. :db 420ms (8.7%)
 …
@@ -129,7 +129,7 @@ actual number listed, so a build with fewer than ten weighted modules prints
 
 When the weights file is missing, the task succeeds and logs:
 
-```
+```text
 [shardwise] no weights file found at <projectDir>/test-weights.properties
 ```
 

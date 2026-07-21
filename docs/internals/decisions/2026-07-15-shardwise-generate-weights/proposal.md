@@ -6,6 +6,7 @@ Ship a Gradle task `shardwiseGenerateWeights` that generates `test-weights.prope
 from JUnit XML timings, replacing the copy-paste inline Python in the README.
 
 Two drivers:
+
 - **Verified bug.** The README's inline script (`README.md:196-208`) omits the
   `if module == f: module = '.'` root-key fix that `docs/self-updating-weights.md`
   has. Root-project timings get keyed as a raw path, match no module, and silently
@@ -19,6 +20,7 @@ so it cannot drift from the planner.
 ## Scope
 
 ### In Scope
+
 - New task `shardwiseGenerateWeights` writing a single merged `test-weights.properties`.
 - Pure `internal/` aggregator: JUnit XML parse + module-key derivation + millis render.
 - CC-safe glue registration in `ShardwisePlugin` discovering `Test` XML output dirs
@@ -26,6 +28,7 @@ so it cannot drift from the planner.
 - Replace buggy Python in `README.md` and the CI recipes in `docs/self-updating-weights.md`.
 
 ### Out of Scope
+
 - **Per-task-name weight profiles** — deferred to a potential v0.2 feature; would break
   the frozen weights-file format or force a planner rewrite.
 - Auto-running generation on every build (task is explicit, on-demand).
@@ -34,10 +37,12 @@ so it cannot drift from the planner.
 ## Capabilities
 
 ### New Capabilities
+
 - `weights-generation`: on-demand task that aggregates JUnit suite timings into the
   merged, per-module `test-weights.properties`.
 
 ### Modified Capabilities
+
 - None (planner, weights-file format, and extension DSL behavior unchanged).
 
 ## Approach

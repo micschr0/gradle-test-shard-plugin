@@ -18,7 +18,6 @@ After this tutorial, your `parallel: 3` line stays; your hand-maintained test li
 - [Subgoal 6 — Keep the weights fresh (your turn)](#subgoal-6--keep-the-weights-fresh-your-turn)
 - [The sample project we anchor on](#the-sample-project-we-anchor-on)
 
-
 ## The sample project we anchor on
 
 This tutorial uses a 6-module build:

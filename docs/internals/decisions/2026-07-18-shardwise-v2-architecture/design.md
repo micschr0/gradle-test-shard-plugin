@@ -10,6 +10,7 @@ Unify four concurrent work streams: audit-followup-debt closure (TKIT-IP-003, TK
 
 **Choice**: One merged `test-weights.properties` per module, derived from JUnit XML timings.
 **Alternatives considered**:
+
 - Per-task-name profiles (`task1.properties`, `task2.properties`) — more complex aggregation, incompatible with frozen format.
 **Rationale**: Matches existing weights-file format documented in README:189; keeps planner state simple; incremental change with zero behavioral impact on users.
 
@@ -17,6 +18,7 @@ Unify four concurrent work streams: audit-followup-debt closure (TKIT-IP-003, TK
 
 **Choice**: Planner results passed via `Provider<ShardBuildService.PlannerResult>` from ShardPlannerService to ShardBuildService.
 **Alternatives considered**:
+
 - Constructor parameter injection — creates eager dependency graph, violates CC safety.
 - Direct service lookup via `project.services` — breaks lazy wiring, violates CC safety.
 **Rationale**: Matches CC-safety invariant (no afterEvaluate, lazy wiring only); keeps dependency graph acyclic; both services remain `Serializable` independently.
@@ -25,6 +27,7 @@ Unify four concurrent work streams: audit-followup-debt closure (TKIT-IP-003, TK
 
 **Choice**: Migrate dependencies one file at a time, verify with `./gradlew help` before proceeding.
 **Alternatives considered**:
+
 - Bulk migration of all at once — risks `libs.gradle.api` gotcha blocking build.
 - Skip migration now — defers catalog coverage goal beyond v2.
 **Rationale**: Avoids known `libs.gradleApi` access pattern trap (Catalog-migration gotcha in CLAUDE.md); ensures each migration step passes build before next.
@@ -32,7 +35,8 @@ Unify four concurrent work streams: audit-followup-debt closure (TKIT-IP-003, TK
 ## Data Flow
 
 Weights-generation task:
-```
+
+```text
 gradlew shardwiseGenerateWeights → ShardwisePlugin.registerGenerateTestWeights()
     → internal/GenerateTestWeights.readJunitXml(dirs) → parse XML timings
     → internal/TestWeights.toModules(paths, weights, defaultWeight) → derive modules
@@ -41,7 +45,8 @@ gradlew shardwiseGenerateWeights → ShardwisePlugin.registerGenerateTestWeights
 ```
 
 BuildService split (lazy injection):
-```
+
+```text
 ShardwisePlugin.apply() → register ShardPlannerService (no NodeEnv params)
     → register ShardBuildService (usesService(ShardPlannerService::class))
     → NodeEnvValueSource.obtain() → NodeEnv (via System.getenv)
@@ -49,15 +54,17 @@ ShardwisePlugin.apply() → register ShardPlannerService (no NodeEnv params)
     → ShardBuildService.lazy load planner state → planFor(taskName)
 ```
 
-    ShardwisePlugin
-         │
-         ├─── register(ShardPlannerService) (params: planner config only)
-         └─── register(ShardBuildService) (usesService(ShardPlannerService::class))
-                │
-                ├─── obtains NodeEnv via NodeEnvValueSource
-                └─── obtains planner state via Provider<PlannerResult>
-                       │
-                       └─── ShardPlannerService.plan() → immutable ShardPlan
+```text
+ShardwisePlugin
+     │
+     ├─── register(ShardPlannerService) (params: planner config only)
+     └─── register(ShardBuildService) (usesService(ShardPlannerService::class))
+            │
+            ├─── obtains NodeEnv via NodeEnvValueSource
+            └─── obtains planner state via Provider<PlannerResult>
+                   │
+                   └─── ShardPlannerService.plan() → immutable ShardPlan
+```
 
 ## File Changes
 
@@ -131,6 +138,7 @@ N/A — no routing, shell, subprocess, VCS/PR automation, executable-file classi
 ## Migration / Rollout
 
 No migration required — all changes are additive or internal refactors:
+
 - Weights-generation task is additive; existing scripts deprecated in docs.
 - BuildService split is additive (`ShardPlannerService` + lazy injection) with single-service fallback at `nodeTotal = 1`.
 - Catalog migration is one-file-at-a-time additive; no existing APIs modified.

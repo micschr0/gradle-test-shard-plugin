@@ -85,7 +85,6 @@ Pure Core     .internal                     TestShardPlanner, TestWeights, PlanR
 - **Coverage gate:** kover enforces ≥80% line coverage. Deliberate drops need the threshold
   adjusted and justified in the commit message.
 
-
 ## Tooling
 
 | Tool | What it catches | Status |

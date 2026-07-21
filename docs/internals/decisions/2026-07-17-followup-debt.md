@@ -1,4 +1,5 @@
 # Audit Followup Debt — Durable Spec
+
 ## Intent
 
 Close the **8 remaining audit findings** from the 2026-07-17 review and the **F1 final-verify** item, in three dependency-tier phases. Cleanup before adding new features.
@@ -65,6 +66,7 @@ No public-API change. All edits are metadata, lifecycle, test-side, or workflow-
 Per item: **codegraph review** of affected symbols → **fix** → **same-lens re-review** → **gate verify** (`./gradlew check apiCheck` + `shellcheck` + `actionlint` where relevant) → **work-unit commit**. Per-item commit per work-unit-commits skill: setup / findings / fix are separate.
 
 Locked:
+
 - **No verify-rule activation for kover** in Plan 6 reports-only mode. Activation belongs to Tier 2 after 30 days of stable reports.
 - **No SHA guessing**: any GH Action SHA pin comes from `gh api repos/<owner>/<repo>/git/refs/tags/<tag>` per `github-actions-hardening` rule 1.
 

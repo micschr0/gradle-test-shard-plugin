@@ -68,6 +68,7 @@ No public-API change. All edits are internal-symbol cuts and build-config additi
 Strict TDD active. No new production tests (cuts only); existing test suite covers behavior. Test files rewritten for Fix 1 preserve the same assertions via a private test-local `ShardPlan.runsOn` extension that mirrors production's safety-net semantics.
 
 **Verify gate:**
+
 - `./gradlew detekt` — green
 - `./gradlew test` — all unit tests green
 - `./gradlew functionalTest` — TestKit green (CC matrix, cross-version, IP)

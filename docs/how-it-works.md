@@ -15,7 +15,6 @@ Shardwise distributes weighted test modules across N parallel CI nodes using Gre
 - [Observing the plan](#observing-the-plan)
 - [Scope and known limitations](#scope-and-known-limitations)
 
-
 > **Glossary.** In this explanation: **module** means a Gradle subproject, **CI node** is the runner that executes a job, **plan** is the deterministic shard assignment (not "shard plan" or "partition"), and **weights** are relative timing values per module. See the [configuration reference](configuration.md) for the canonical DSL terms.
 >
 ## The problem
@@ -107,6 +106,7 @@ There is no coordinator. Each of the N parallel nodes independently computes the
 ## Architecture: pure core, thin glue
 
 CC = configuration cache.
+
 ```text
 src/main/kotlin/de/micschro/shardwise/
 ├── ShardwisePlugin.kt            Gradle glue (public)

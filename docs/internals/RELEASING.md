@@ -81,4 +81,3 @@ gh api repos/<owner>/<repo>/git/tags/<object.sha>
 - [ ] Plugin is published on the Gradle Plugin Portal
 - [ ] Renovate has created its first dependency PR
 - [ ] Secrets history scan is clean on latest commits
-
