@@ -4,7 +4,9 @@ All notable changes to this project are documented here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Pre-1.0, the public
 API may change between minor versions; every break is listed under its release.
 
-## [Unreleased]
+## [0.4.0] — 2026-07-22
+
+**Breaking changes:** none.
 
 ### 📚 Documentation
 
@@ -14,6 +16,7 @@ API may change between minor versions; every break is listed under its release.
 ### 🔧 CI
 
 - Publish a GitHub Release with changelog notes after each portal publish
+- Restore Scorecard push/schedule triggers now that the repository is public
 
 ## [0.3.0] — 2026-07-21
 
