@@ -70,3 +70,49 @@ jobs:
           # Enables Sigstore signing (off by default so local and e2e
           # publishToMavenLocal runs do not need an OIDC provider).
           SIGSTORE_SIGN: "true"
+
+  # Runs only after the portal publish succeeds, so a failed publish never
+  # leaves a GitHub Release advertising a version that is not downloadable.
+  release-notes:
+    name: GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # create the GitHub Release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Extracts the section for this tag from CHANGELOG.md: everything after
+      # the matching `## [x.y.z]` heading up to the next `## [` heading.
+      # Falls back to a generated note if the version has no changelog entry.
+      - name: Extract changelog section
+        id: notes
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${VERSION#v}"
+          awk -v ver="$version" '
+            $0 ~ "^## \\[" ver "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "No CHANGELOG entry for ${version}." > notes.md
+          fi
+          {
+            echo "Published to the [Gradle Plugin Portal](https://plugins.gradle.org/plugin/de.micschro.shardwise)."
+            echo
+            echo '```kotlin'
+            echo "plugins { id(\"de.micschro.shardwise\") version \"${version}\" }"
+            echo '```'
+          } >> notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: gh release create "$VERSION" --title "$VERSION" --notes-file notes.md --verify-tag
