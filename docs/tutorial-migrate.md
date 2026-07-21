@@ -65,6 +65,8 @@ For the sample project, a typical "before" log shows Node 1 doing almost nothing
 
 Your `:test` configuration references `$CI_NODE_INDEX` without handling the unset case. Some CI runners set `$CI_NODE_INDEX` to "1" by default even when `CI_NODE_TOTAL` is unset locally.
 
+Run `printenv | grep CI_NODE` on the runner: both variables must be present, or both absent. One without the other is the failure.
+
 ---
 
 ## Subgoal 2 — Apply the Shardwise plugin
