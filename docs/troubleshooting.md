@@ -81,6 +81,20 @@ find yours in the table, then jump to its section for the check and fix.
 | [Stale build cache](#build-cache-restores-stale-from-cache-timing) | Every node shows `FROM-CACHE` for every test task |
 | [Clock-skewed weights](#ci-runner-clock-skewed-weights) | Weights file changes with no code/timing change |
 | [Path collision](#project-path-collision) | Two modules share one Gradle project path |
+| [Built-in test filtering](#built-in-test-filtering) | `test.only()` or `--tests` narrows the run on top of sharding |
+
+### Built-in test filtering
+
+Shardwise skips whole modules, not individual tests within them. Gradle's own
+filtering (`test.only()`, `--tests`) narrows the run *inside* the modules that
+survived the shard decision, so the two compose multiplicatively: a test can be
+filtered out on the one node that was supposed to run it.
+
+**Check:** Look for `--tests` in the CI command line and `only()`/`filter {}` in
+the build scripts.
+
+**Fix:** Pick one mechanism. Use Shardwise to split across nodes, or use Gradle
+filtering to narrow a single run — not both in the same pipeline stage.
 
 ### Divergent weights
 

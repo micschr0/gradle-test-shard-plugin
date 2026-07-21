@@ -108,22 +108,24 @@ No outputs — pure inspection, safe to add to any build.
 ```
 [shardwise] WEIGHTS ANALYSIS
 [shardwise]   modules:   12
-[shardwise]   total:     4,820ms
+[shardwise]   total:     4820ms
 [shardwise]   mean:      401ms
 [shardwise]   median:    180ms
 [shardwise]   p95:       920ms
-[shardwise]   p99:       1,840ms
+[shardwise]   p99:       1840ms
 [shardwise]   imbalance: 4.59x
 [shardwise]
 [shardwise] TOP 10 HEAVIEST
-[shardwise]   1. :reporting 1,840ms (38.2%)
-[shardwise]   2. :core      920ms (19.1%)
-[shardwise]   3. :db        420ms (8.7%)
+[shardwise]   1. :reporting 1840ms (38.2%)
+[shardwise]   2. :core 920ms (19.1%)
+[shardwise]   3. :db 420ms (8.7%)
 …
-[shardwise]
-[shardwise] WARNINGS
-[shardwise]   3 module(s) have no weight (using defaultWeight: 100): :auth, :utils, :common
 ```
+
+`imbalance` is the heaviest module divided by the mean. The heading reports the
+actual number listed, so a build with fewer than ten weighted modules prints
+`TOP 3 HEAVIEST`. Modules with no weight are not listed; they silently use
+`defaultWeight`.
 
 When the weights file is missing, the task succeeds and logs:
 
