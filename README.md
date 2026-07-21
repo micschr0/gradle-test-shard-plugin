@@ -80,7 +80,7 @@ of modules assigned to it.
 
    ```kotlin
    plugins {
-     id("de.micschro.shardwise") version "0.2.0"
+     id("de.micschro.shardwise") version "0.3.0"
    }
    ```
 

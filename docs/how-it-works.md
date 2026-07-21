@@ -11,7 +11,7 @@ Shardwise distributes weighted test modules across N parallel CI nodes using Gre
   - [2. All nodes derive the identical plan](#2-all-nodes-derive-the-identical-plan)
 - [Architecture: pure core, thin glue](#architecture-pure-core-thin-glue)
 - [Configuration-cache safety](#configuration-cache-safety)
-- [Why \`onlyIf\` and not task exclusion?](#why-onlyif-and-not-task-exclusion)
+- [Why `onlyIf` and not task exclusion?](#why-onlyif-and-not-task-exclusion)
 - [Observing the plan](#observing-the-plan)
 - [Scope and known limitations](#scope-and-known-limitations)
 
@@ -87,7 +87,7 @@ flowchart TD
     A -- "no" --> SKIP(["SKIPPED here —<br/>runs on exactly one other node"])
 ```
 
-A module absent from the plan runs on all nodes (`ShardPlan.runsOn`). A task name without a plan runs everywhere (`ShardBuildService.runsOnThisNode`). Test tasks not listed in `taskNames` are never touched.
+A module absent from the plan runs on all nodes. A task name without a plan runs everywhere (`ShardPlannerService.planFor` returns `null`). Test tasks not listed in `taskNames` are never touched.
 
 ### Interaction with edge cases
 
@@ -111,42 +111,38 @@ CC = configuration cache.
 src/main/kotlin/de/micschro/shardwise/
 ├── ShardwisePlugin.kt            Gradle glue (public)
 ├── ShardwiseExtension.kt         configuration surface (public)
+├── PlanDetail.kt                 log-verbosity enum (public)
 └── internal/
     ├── TestShardPlanner.kt       pure: LPT planning, ShardPlan
     ├── TestWeights.kt            pure: weights-file parsing
-    ├── ShardBuildService.kt      Gradle: one plan shared by all test tasks
-    └── NodeEnvValueSource.kt     Gradle: CC-safe env access, validation
+    ├── PlanRenderer.kt           pure: plan dashboard formatting
+    ├── PlanDump.kt               pure: plan serialisation for diffing
+    ├── PlanOnlyHelper.kt         pure: plan-only resolution + logging
+    ├── WeightStats.kt            pure: distribution statistics
+    ├── WeightStatsReporter.kt    pure: analyzer output formatting
+    ├── ShardPlannerService.kt    Gradle: one plan shared by all test tasks
+    ├── ShardNodeEnvService.kt    Gradle: this node's index (own CC key)
+    ├── NodeEnvValueSource.kt     Gradle: CC-safe env access, validation
+    ├── GenerateTestWeights.kt    Gradle: JUnit XML → weights file
+    └── AnalyzeWeights.kt         Gradle: shardwiseAnalyze task
 ```
 
 The planning layer (`TestShardPlanner`, `TestWeights`) has **no Gradle types** and is tested with plain unit tests. The diagram below shows how the pieces interact:
 
 ```mermaid
-flowchart TB
-    subgraph glue["Gradle glue layer"]
-        EXT["ShardwiseExtension<br/>taskNames · weightsFile · defaultWeight"]
-        PLG["ShardwisePlugin"]
-        VS["NodeEnvValueSource<br/>(only System.getenv access)"]
-        BS["ShardBuildService<br/>(one lazy plan per build)"]
-        TT["every matching Test task<br/>onlyIf 'Shardwise node N/M'"]
-    end
-    subgraph pure["Pure core — no Gradle types"]
-        TW["TestWeights<br/>parse weights file"]
-        PLN["TestShardPlanner<br/>Greedy-LPT"]
-        SP["ShardPlan<br/>node → modules"]
-    end
-    PLG -- "creates" --> EXT
-    PLG -- "registers" --> BS
-    PLG -- "wires lazily<br/>(configureEach)" --> TT
-    VS -- "CI_NODE_INDEX / TOTAL" --> BS
-    EXT -- "as providers" --> BS
-    TT -- "runsOnThisNode?" --> BS
-    BS --> TW --> PLN --> SP
+flowchart LR
+    CFG["ShardwiseExtension<br/>taskNames · weightsFile"] --> SVC
+    SVC["ShardPlannerService<br/>parse weights → Greedy-LPT"] --> PLAN["ShardPlan<br/>node → modules"]
+    PLAN --> TT["every matching Test task<br/>onlyIf 'Shardwise node N/M'"]
+    ENV["CI_NODE_INDEX / TOTAL<br/>via NodeEnvValueSource"] --> TT
 ```
 
-The glue layer wires it into Gradle:
+Configuration and weights go in, one plan comes out, and every matching `Test`
+task queries it. The glue layer wires that into Gradle:
 
 - `ShardwisePlugin` registers the extension, collects which modules own which test tasks, and attaches an `onlyIf` predicate to every matching `Test` task.
-- `ShardBuildService` is a shared `BuildService`: the plan is computed once per build (lazily, on first `onlyIf` evaluation) and shared by all test tasks.
+- `ShardPlannerService` is a shared `BuildService`: the plan is computed once per build (lazily, on first `onlyIf` evaluation) and shared by all test tasks.
+- `ShardNodeEnvService` holds only this node's index, so changing `CI_NODE_INDEX` reuses the planner's configuration-cache entry.
 - `NodeEnvValueSource` is the only place that touches `System.getenv`.
 
 ## Configuration-cache safety
@@ -164,7 +160,7 @@ sequenceDiagram
     participant CI as CI node env
     participant G as Gradle
     participant VS as NodeEnvValueSource
-    participant BS as ShardBuildService
+    participant BS as ShardPlannerService
     participant T as ":mod-b:test"
     Note over G: configuration time — skipped entirely on CC reuse
     G->>VS: register env as tracked CC input
@@ -172,7 +168,7 @@ sequenceDiagram
     G->>G: store CC entry (includes weights-file text)
     Note over CI,T: execution time — runs on every node, every build
     CI->>VS: CI_NODE_INDEX=2, CI_NODE_TOTAL=3
-    T->>BS: runsOnThisNode("test", "mod-b")?
+    T->>BS: planFor("test") — is "mod-b" on node 2?
     BS->>BS: first call: parse weights, compute LPT plan once
     BS-->>T: true → execute (elsewhere: false → SKIPPED)
 ```

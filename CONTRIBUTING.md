@@ -25,24 +25,21 @@ Three commands cover the three test layers:
 
 Functional tests download Gradle distributions (8.11, 8.14.x, 9.x) on first
 run. They are the source of truth for plugin behaviour — run them for any change
-to `ShardwisePlugin`, `ShardBuildService`, or `NodeEnvValueSource`.
+to `ShardwisePlugin`, the planner services, or `NodeEnvValueSource`.
 
 ## Step 2 — Pick the right test layer
 
 The codebase has two layers: a pure planning core (`internal/TestShardPlanner`,
 `internal/TestWeights`, no Gradle types) and Gradle glue (`ShardwisePlugin`,
-`internal/ShardBuildService`, `internal/NodeEnvValueSource`). Put new planning
-logic in the pure core. The design is documented in
-[docs/how-it-works.md](docs/how-it-works.md). Put new tests at the cheapest
-level that catches the regression:
+`internal/ShardPlannerService`, `internal/ShardNodeEnvService`,
+`internal/NodeEnvValueSource`). Put new planning logic in the pure core. The
+design is documented in [docs/how-it-works.md](docs/how-it-works.md).
 
-```mermaid
-flowchart TD
-    FT["functionalTest — TestKit<br/>real multi-module builds · CC assertions · Gradle version matrix<br/><i>slow, highest fidelity</i>"]
-    PB["ShardwisePluginApplyTest — ProjectBuilder<br/>apply validation · shardPath mapping · extension defaults"]
-    UT["unit tests — pure core<br/>LPT invariants · weights parsing · env validation<br/><i>fast, run these constantly</i>"]
-    UT --> PB --> FT
-```
+Put new tests at the cheapest level that catches the regression: unit tests on
+the pure core first (LPT invariants, weights parsing, env validation), then
+`ShardwisePluginApplyTest` with ProjectBuilder for apply-time behaviour, and
+`functionalTest` only for what needs a real build (configuration cache, the
+Gradle version matrix).
 
 ## Step 3 — Respect the hard rules
 

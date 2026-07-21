@@ -52,7 +52,7 @@ kover (minBound 80%) + apiCheck + validatePlugins.
 
 ## Architecture
 
-**Version:** `0.2.0` | **Plugins:** `java-gradle-plugin` + `com.gradle.plugin-publish` 2.1.1
+**Version:** `0.3.0` | **Plugins:** `java-gradle-plugin` + `com.gradle.plugin-publish` 2.1.1
 **Kotlin:** 2.4.0 | **Gradle:** 9.6.1 | **JVM Toolchain:** 17 | **Min Gradle API:** 8.11
 
 Two layers, keep them separated:
