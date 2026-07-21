@@ -1,16 +1,10 @@
 name: Scorecard
 
-# Manual-only while this repository is private. OpenSSF Scorecard's
-# publish_results (badge + REST API) and the SARIF upload to code scanning both
-# require a public repository, so every automated run would go red. Restore the
-# schedule/push triggers below once the repo is public; nothing else needs to
-# change.
-#
-#  push:
-#    branches: [main]
-#  schedule:
-#    - cron: "0 6 * * 4" # Weekly on Thursday 06:00 UTC
 on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 4" # Weekly on Thursday 06:00 UTC
   workflow_dispatch:
 
 permissions: {}
