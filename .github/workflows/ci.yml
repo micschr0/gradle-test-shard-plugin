@@ -330,8 +330,8 @@ jobs:
           annotations: true
           advanced-security: false
           online-audits: true
-          # Same PAT the claudebar repo uses. It is not configured on this
-          # repository yet, and a missing secret expands to an empty string,
-          # which would leave the action unauthenticated — so fall back to
-          # the default GITHUB_TOKEN.
+          # A PAT raises the API budget the online audits spend per action
+          # ref. The `||` keeps forks working: a missing secret expands to an
+          # empty string, which would leave the action unauthenticated, so
+          # fall back to the default GITHUB_TOKEN.
           token: ${{ secrets.ZIZMOR_PAT || github.token }}
