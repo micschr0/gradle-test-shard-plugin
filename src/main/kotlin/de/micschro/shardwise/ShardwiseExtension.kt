@@ -40,4 +40,13 @@ public interface ShardwiseExtension {
      * @since 0.1.0
      */
     public val planDetail: Property<PlanDetail>
+
+    /**
+     * When true, all Test tasks are SKIPPED and the shard plan is logged per-module instead.
+     * Override via system property `-Dshardwise.planOnly=true` or env `SHARDWISE_PLAN_ONLY=true`.
+     * Default: `false`.
+     *
+     * @since 0.3.0
+     */
+    public val planOnly: Property<Boolean>
 }

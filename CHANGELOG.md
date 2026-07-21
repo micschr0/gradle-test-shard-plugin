@@ -7,6 +7,8 @@
 - Plugin hardening (CC + lifecycle)
 - Plan dashboard
 - Add generateTestWeights task
+- Add `planOnly` mode: skip tests and log the per-module plan
+- Add `shardwiseAnalyze` task: distribution statistics for the weights file
 
 ### 💼 Other
 
@@ -24,10 +26,12 @@
 - Overhaul documentation set
 - SDD retrospective + audit lessons
 - Add OSS files
+- Configuration reference: plan-only + analyzer sections
 
 ### 🧪 Testing
 
 - Property + mutation + env test suite
+- Plan-only + analyzer functional coverage
 
 ### ⚙️ Miscellaneous Tasks
 

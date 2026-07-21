@@ -3,10 +3,12 @@
 
 package de.micschro.shardwise
 
+import de.micschro.shardwise.internal.AnalyzeWeights
 import de.micschro.shardwise.internal.GenerateTestWeights
 import de.micschro.shardwise.internal.NodeEnv
 import de.micschro.shardwise.internal.NodeEnvValueSource
 import de.micschro.shardwise.internal.PlanDump
+import de.micschro.shardwise.internal.PlanOnlyHelper
 import de.micschro.shardwise.internal.PlanRenderer
 import de.micschro.shardwise.internal.ShardNodeEnvService
 import de.micschro.shardwise.internal.ShardPlannerService
@@ -15,6 +17,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.execution.TaskExecutionGraph
 import org.gradle.api.logging.Logging
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.testing.Test
@@ -39,6 +42,7 @@ public class ShardwisePlugin : Plugin<Project> {
         ext.defaultWeight.convention(TestWeights.DEFAULT_WEIGHT)
         ext.taskNames.convention(setOf("test"))
         ext.planDetail.convention(PlanDetail.FULL)
+        ext.planOnly.convention(false)
 
         val nodeEnv = project.providers.of(NodeEnvValueSource::class.java) {}
         val nodeI = nodeEnv.map(NodeEnv::index)
@@ -65,14 +69,16 @@ public class ShardwisePlugin : Plugin<Project> {
 
         val taskNames = ext.taskNames
         registerGenerateTestWeights(project, taskNames, ext.weightsFile)
+        registerAnalyzeWeights(project, ext)
 
         project.gradle.taskGraph.whenReady { graph ->
             warnOnLifecycleTasks(project, taskNames, graph)
             dumpPlans(taskNames, planner, planDumpPath)
             logPlan(ext, taskNames, nodeI, nodeT, planner, ansi)
+            maybeLogPlanOnly(ext, taskNames, planner)
         }
 
-        configureTestTasks(project, taskNames, planner, nodeEnvService, nodeI, nodeT)
+        configureTestTasks(project, taskNames, planner, nodeEnvService, nodeI, nodeT, ext.planOnly)
     }
 
     /**
@@ -108,7 +114,7 @@ public class ShardwisePlugin : Plugin<Project> {
     /**
      * Wires every Test task to consume both shared services and decides per-task
      * whether the current node runs it. Coverage beats balance: unknown plan or
-     * `nodeTotal <= 1` ⇒ run, never skip.
+     * `nodeTotal <= 1` ⇒ run, never skip. `planOnly` ⇒ always skip.
      */
     private fun configureTestTasks(
         project: Project,
@@ -117,6 +123,7 @@ public class ShardwisePlugin : Plugin<Project> {
         nodeEnvService: Provider<ShardNodeEnvService>,
         nodeI: Provider<Int>,
         nodeT: Provider<Int>,
+        planOnly: Property<Boolean>,
     ) {
         project.allprojects { p ->
             val modulePath = p.shardPath
@@ -124,6 +131,9 @@ public class ShardwisePlugin : Plugin<Project> {
                 val taskName = test.name
                 test.usesService(planner)
                 test.usesService(nodeEnvService)
+                test.onlyIf("Shardwise plan-only is active") {
+                    !PlanOnlyHelper.resolve(planOnly.get())
+                }
                 test.onlyIf("Shardwise node ${nodeI.get()}/${nodeT.get()}") {
                     val inList = taskName in taskNames.get()
                     if (!inList) return@onlyIf true
@@ -161,6 +171,42 @@ public class ShardwisePlugin : Plugin<Project> {
                 "Aggregates JUnit XML timings into test-weights.properties for shardwise balancing."
             task.taskNames.set(taskNames)
             GenerateTestWeights.wireInputsFrom(task, project, weightsFile)
+        }
+    }
+
+    /**
+     * Registers the weights-analyzer task: read-only inspection of the weights file.
+     * Defaults to `<projectDir>/test-weights.properties` when none is configured.
+     */
+    private fun registerAnalyzeWeights(project: Project, ext: ShardwiseExtension) {
+        project.tasks.register("shardwiseAnalyze", AnalyzeWeights::class.java) { task ->
+            task.group = "Shardwise"
+            task.description =
+                "Analyzes test-weights.properties and reports distribution statistics."
+            task.weightsFile.set(
+                ext.weightsFile.orElse(
+                    project.layout.projectDirectory.file("test-weights.properties")
+                )
+            )
+            task.defaultWeight.set(ext.defaultWeight)
+        }
+    }
+
+    /**
+     * If plan-only is active, log the per-module plan for each task so the operator
+     * can see what *would* have run. Skipped when plan is unavailable (e.g. no modules
+     * matched the task name filter).
+     */
+    private fun maybeLogPlanOnly(
+        ext: ShardwiseExtension,
+        taskNames: SetProperty<String>,
+        planner: Provider<ShardPlannerService>,
+    ) {
+        if (!PlanOnlyHelper.resolve(ext.planOnly.get())) return
+        val plannerSvc = planner.get()
+        taskNames.get().forEach { taskName ->
+            val plan = plannerSvc.planFor(taskName) ?: return@forEach
+            PlanOnlyHelper.logPlan(plan, totalWeight = 0, log)
         }
     }
 

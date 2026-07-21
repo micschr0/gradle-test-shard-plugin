@@ -10,6 +10,7 @@ public final class de/micschro/shardwise/PlanDetail : java/lang/Enum {
 public abstract interface class de/micschro/shardwise/ShardwiseExtension {
 	public abstract fun getDefaultWeight ()Lorg/gradle/api/provider/Property;
 	public abstract fun getPlanDetail ()Lorg/gradle/api/provider/Property;
+	public abstract fun getPlanOnly ()Lorg/gradle/api/provider/Property;
 	public abstract fun getTaskNames ()Lorg/gradle/api/provider/SetProperty;
 	public abstract fun getWeightsFile ()Lorg/gradle/api/file/RegularFileProperty;
 }

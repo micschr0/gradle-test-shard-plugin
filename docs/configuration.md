@@ -16,6 +16,7 @@ the environment. When both are unset (local runs), the plugin is a no-op.
 | `weightsFile` | `RegularFileProperty` | none (`test-weights.properties` in the root project) | Per-module timing file; without it every module uses `defaultWeight` (count-based balancing). See [Weights file format](#weights-file-format). |
 | `defaultWeight` | `Property<Int>` | `10` | Weight for modules not in the weights file |
 | `planDetail` | `Property<PlanDetail>` | `FULL` | How much of the plan to log at build start |
+| `planOnly` | `Property<Boolean>` | `false` | Skip Test tasks and log the plan instead. Override via `-Dshardwise.planOnly=true` or env `SHARDWISE_PLAN_ONLY=true`. See [Plan-only mode](#plan-only-mode). |
 
 ## PlanDetail
 
@@ -52,6 +53,86 @@ common/common-domain=500
 - Weights affect balance, never coverage: every module is assigned to exactly
   one shard
 - Stale weights shift load but never lose tests
+
+<a id="plan-only-mode"></a>
+
+## Plan-only mode
+
+`planOnly` skips all `Test` tasks and logs the per-module plan instead. Useful
+for CI debugging — answer "which module runs on which shard?" without burning
+a real test run.
+
+```kotlin
+shardwise {
+    planOnly.set(true)
+}
+```
+
+```bash
+# Same effect via system property (CI-friendly)
+./gradlew test -Dshardwise.planOnly=true
+
+# Or via env var
+SHARDWISE_PLAN_ONLY=true ./gradlew test
+```
+
+**Output (per task):**
+
+```
+[shardwise] PLAN-ONLY mode — no tests will run
+[shardwise] :core → shard 1/3, weight=0ms
+[shardwise] :db → shard 2/3, weight=0ms
+[shardwise] :web → shard 2/3, weight=0ms
+[shardwise] :(idle) → shard 3/3
+[shardwise] Total: 3 modules, 0ms, 3 shards, imbalance=2.00x
+```
+
+**Precedence** (first wins): `ext.planOnly` → system property → env var.
+
+The plan is logged once per `taskName`. Idle nodes (with no modules) appear
+explicitly so the shard count is provable. `imbalance` is `max-modules-per-shard / mean-modules-per-shard` (1.0 = perfectly balanced).
+
+<a id="weights-analyzer"></a>
+
+## Weights analyzer
+
+`shardwiseAnalyze` reads the weights file and logs distribution statistics.
+No outputs — pure inspection, safe to add to any build.
+
+```bash
+./gradlew shardwiseAnalyze
+```
+
+**Output (sample):**
+
+```
+[shardwise] WEIGHTS ANALYSIS
+[shardwise]   modules:   12
+[shardwise]   total:     4,820ms
+[shardwise]   mean:      401ms
+[shardwise]   median:    180ms
+[shardwise]   p95:       920ms
+[shardwise]   p99:       1,840ms
+[shardwise]   imbalance: 4.59x
+[shardwise]
+[shardwise] TOP 10 HEAVIEST
+[shardwise]   1. :reporting 1,840ms (38.2%)
+[shardwise]   2. :core      920ms (19.1%)
+[shardwise]   3. :db        420ms (8.7%)
+…
+[shardwise]
+[shardwise] WARNINGS
+[shardwise]   3 module(s) have no weight (using defaultWeight: 100): :auth, :utils, :common
+```
+
+When the weights file is missing, the task succeeds and logs:
+
+```
+[shardwise] no weights file found at <projectDir>/test-weights.properties
+```
+
+The default `weightsFile` is `<projectDir>/test-weights.properties`; set
+`ext.weightsFile` to override.
 
 ## Inspecting the plan
 
