@@ -79,6 +79,19 @@ tasks.validatePlugins {
     failOnWarning = true
 }
 
+// Sigstore signing needs an OIDC identity provider. That exists on the release
+// workflow, not in local builds or the e2e sandbox, where `publishToMavenLocal`
+// would otherwise fail on "Failed to obtain signing certificate".
+// Release publishing sets SIGSTORE_SIGN=true.
+// `enabled` is a plain Boolean resolved at configuration time. An `onlyIf` spec
+// would capture a script reference, which the configuration cache cannot serialize.
+val sigstoreSigningEnabled =
+    providers.environmentVariable("SIGSTORE_SIGN").orNull == "true"
+
+tasks.withType<dev.sigstore.sign.tasks.SigstoreSignFilesTask>().configureEach {
+    enabled = sigstoreSigningEnabled
+}
+
 detekt {
     buildUponDefaultConfig = true
     config.from(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
