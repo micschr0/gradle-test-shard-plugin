@@ -295,3 +295,43 @@ jobs:
           inputs: .github/workflows/*.yml
           config: zizmor.yml
           annotations: true
+          # v0.6.0 defaults advanced-security to true, which is mutually
+          # exclusive with annotations — it must be turned off explicitly.
+          advanced-security: false
+          # The online audits (impostor-commit, stale-action-refs) reach the
+          # GitHub API per action ref and fail intermittently on transient
+          # errors, reporting bogus SHAs for correctly pinned actions. Every
+          # action here is SHA-pinned with a matching version comment, which
+          # the offline audits still verify.
+          online-audits: false
+
+  # ── workflow-security audit, online (advisory) ─────────────────────────
+  # The impostor-commit audit is the only check that catches a SHA which does
+  # not belong to the action's repository, so it is worth running — but it is
+  # API-backed and fails on transient errors, so it must never block the
+  # pipeline. Findings surface as annotations; read them, do not trust a red
+  # mark blindly (a failed API call has reported SHAs that exist nowhere).
+  zizmor-online:
+    name: zizmor (online, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
+        with:
+          inputs: .github/workflows/*.yml
+          config: zizmor.yml
+          annotations: true
+          advanced-security: false
+          online-audits: true
+          # Same PAT the claudebar repo uses. It is not configured on this
+          # repository yet, and a missing secret expands to an empty string,
+          # which would leave the action unauthenticated — so fall back to
+          # the default GITHUB_TOKEN.
+          token: ${{ secrets.ZIZMOR_PAT || github.token }}
