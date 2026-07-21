@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 micschr0
 
 package de.micschro.shardwise.internal
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
@@ -28,10 +25,6 @@ internal abstract class AnalyzeWeights : DefaultTask() {
     @get:Internal
     abstract val weightsFile: RegularFileProperty
 
-    /** Fallback weight for modules not in the weights file. */
-    @get:Input
-    abstract val defaultWeight: Property<Int>
-
     @TaskAction
     fun analyze() {
         val file = weightsFile.orNull?.asFile
@@ -41,7 +34,7 @@ internal abstract class AnalyzeWeights : DefaultTask() {
             return
         }
         val parsed = TestWeights.parse(file.readText())
-        val stats = WeightStats.compute(parsed, defaultWeight.get())
+        val stats = WeightStats.compute(parsed)
         WeightStatsReporter.log(stats, logger)
     }
 }

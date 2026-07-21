@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 micschr0
-
 package de.micschro.shardwise
 
 import de.micschro.shardwise.internal.AnalyzeWeights
@@ -188,7 +186,6 @@ public class ShardwisePlugin : Plugin<Project> {
                     project.layout.projectDirectory.file("test-weights.properties")
                 )
             )
-            task.defaultWeight.set(ext.defaultWeight)
         }
     }
 

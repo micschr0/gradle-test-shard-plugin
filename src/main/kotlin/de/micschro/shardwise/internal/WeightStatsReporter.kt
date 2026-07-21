@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 micschr0
 
 package de.micschro.shardwise.internal
 
@@ -7,7 +6,7 @@ import org.gradle.api.logging.Logger
 
 /**
  * Formats [WeightStats] for the build log. Pure: takes a [Logger] but holds no
- * Gradle state. Section order: header → counters → top-10 → warnings.
+ * Gradle state. Section order: header → counters → top-10.
  *
  * @since 0.3.0
  */
@@ -38,14 +37,6 @@ internal object WeightStatsReporter {
                     "[shardwise]   $rank. :$name ${weight}ms (${"%.1f".format(pct)}%)"
                 )
             }
-        }
-        if (stats.defaultWeighted.isNotEmpty()) {
-            logger.lifecycle("[shardwise]")
-            logger.lifecycle("[shardwise] WARNINGS")
-            logger.lifecycle(
-                "[shardwise]   ${stats.defaultWeighted.size} module(s) have no weight " +
-                    "(using defaultWeight): ${stats.defaultWeighted.joinToString(", ") { ":$it" }}"
-            )
         }
     }
 }
