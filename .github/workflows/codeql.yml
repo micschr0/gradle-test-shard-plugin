@@ -36,7 +36,9 @@ jobs:
       - uses: github/codeql-action/init@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3.37.0
         with:
           languages: java-kotlin
-
-      - uses: github/codeql-action/autobuild@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3.37.0
+          # autobuild hooks the Kotlin daemon, whose extractor rejects Kotlin 2.4.10
+          # (KotlinVersionTooRecentError: supports < 2.4.10). build-mode none
+          # extracts from source directly and sidesteps the compiler interceptor.
+          build-mode: none
 
       - uses: github/codeql-action/analyze@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3.37.0
