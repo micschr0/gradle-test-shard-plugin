@@ -1,3 +1,5 @@
+import org.gradle.plugin.compatibility.compatibility
+
 plugins {
     id("java-gradle-plugin")
     alias(libs.plugins.kotlinJvm)
@@ -63,8 +65,13 @@ gradlePlugin {
             id = "de.micschro.shardwise"
             implementationClass = "de.micschro.shardwise.ShardwisePlugin"
             displayName = "Shardwise"
-            description = "Shards a multi-module build's test tasks across parallel CI nodes via Greedy-LPT. Requires Gradle 8.11+ and Java 17+."
-            tags = listOf("ci", "testing", "sharding", "parallel", "build")
+            description = "Gradle test sharding & splitting for CI: balances test tasks across parallel nodes by measured runtime"
+            tags = listOf("ci", "testing", "sharding", "test-splitting", "parallel")
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
     }
 }
