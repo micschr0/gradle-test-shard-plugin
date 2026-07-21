@@ -1,19 +1,12 @@
 name: CodeQL
 
-# Manual-only while this repository is private. The analysis itself passes, but
-# uploading its results is code scanning — a GitHub Advanced Security feature on
-# private repos — so analyze@v3 dies with "Resource not accessible by integration"
-# and every run goes red. A check that can never be green just teaches people to
-# ignore red checks. Restore the push/pull_request/schedule triggers below once the
-# repo is public or GHAS is enabled; nothing else needs to change.
-#
-#  push:
-#    branches: [main]
-#  pull_request:
-#    branches: [main]
-#  schedule:
-#    - cron: "0 6 * * 3" # Weekly on Wednesday 06:00 UTC
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 3" # Weekly on Wednesday 06:00 UTC
   workflow_dispatch:
 
 permissions: {}
