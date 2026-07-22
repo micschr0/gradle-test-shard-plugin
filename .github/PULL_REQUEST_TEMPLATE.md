@@ -1,6 +1,8 @@
 ## What does this PR do?
 
-<!-- One or two sentences describing the change. -->
+<!-- One or two sentences describing the change and why. Closes #___ -->
+
+**Breaking changes:** none <!-- or: describe them -->
 
 ## Checklist
 
