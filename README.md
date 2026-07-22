@@ -1,54 +1,49 @@
 <div align="center">
 
+[![Shardwise](https://img.shields.io/badge/⚡_SHARDWISE-02303A?style=for-the-badge&labelColor=02303A&color=1BA39C)](https://plugins.gradle.org/plugin/de.micschro.shardwise)
+
 # Shardwise
 
-**A Gradle plugin that packs your CI test modules by measured runtime, so every node finishes together.**
-Your CI has 3 nodes? Today one finishes in 40s and waits 4 minutes for the slow one. Shardwise fixes that.
+**Balance Gradle test shards by measured runtime, not module count.**
 
-[![CI](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/gradle-plugin-portal/v/de.micschro.shardwise?label=version&color=blue)](https://plugins.gradle.org/plugin/de.micschro.shardwise)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/micschr0/gradle-test-shard-plugin/badge)](https://scorecard.dev/viewer/?uri=github.com/micschr0/gradle-test-shard-plugin)
-[![License](https://img.shields.io/github/license/micschr0/gradle-test-shard-plugin)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/micschr0/gradle-test-shard-plugin/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI&labelColor=02303A&color=1BA39C)](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/tag/micschr0/gradle-test-shard-plugin?style=flat-square&logo=gradle&logoColor=white&label=version&labelColor=02303A&color=1BA39C&sort=semver)](https://github.com/micschr0/gradle-test-shard-plugin/releases)
+[![Scorecard](https://img.shields.io/ossf-scorecard/github.com/micschr0/gradle-test-shard-plugin?style=flat-square&logo=securityscorecard&logoColor=white&label=Scorecard&labelColor=02303A&color=1BA39C)](https://scorecard.dev/viewer/?uri=github.com/micschr0/gradle-test-shard-plugin)
+[![Gradle](https://img.shields.io/badge/Gradle-8.11%2B-437291?style=flat-square&logo=gradle&logoColor=white&labelColor=02303A)](https://gradle.org)
+[![JDK](https://img.shields.io/badge/JDK-17%2B-437291?style=flat-square&logo=openjdk&logoColor=white&labelColor=02303A)](https://openjdk.org)
+[![License](https://img.shields.io/github/license/micschr0/gradle-test-shard-plugin?style=flat-square&labelColor=02303A&color=8A9BA3)](LICENSE)
 
 </div>
 
 ---
 
-## The problem, in one picture
+## Why runtime, not module count
 
-Same 12-module suite. Same 3 nodes. Same bill.
-`█` testing · `░` idle but paid for
+One node running everything, or N nodes split by hand — both leave time on the table.
 
 ```text
-SPLIT BY MODULE COUNT                             SPLIT BY MEASURED WEIGHT
-  node 1  ████████████████████  2440ms              node 1  ███████████████░░░░░  1840ms
-  node 2  ████████████░░░░░░░░  1430ms              node 2  ████████████░░░░░░░░  1490ms
-  node 3  ████████░░░░░░░░░░░░   940ms              node 3  ████████████░░░░░░░░  1480ms
-          └─────────────────┘                               └────────────┘
-          wall  2440ms                                      wall  1840ms   25% faster
+BY MODULE COUNT — wall 2440ms
+  node 1  ████████████████████ 2440
+  node 2  ████████████░░░░░░░░ 1430
+  node 3  ████████░░░░░░░░░░░░  940
+
+BY MEASURED WEIGHT — wall 1840ms
+  node 1  ███████████████░░░░░ 1840
+  node 2  ████████████░░░░░░░░ 1490
+  node 3  ████████████░░░░░░░░ 1480
 ```
 
-Four modules per node looks fair. It isn't — one module can outweigh five.
+`█` testing · `░` idle. One module can outweigh five. **25% faster wall time.**
 
-<sub>Illustrative; your numbers depend on how your suite is distributed.</sub>
+> [!TIP]
+> Multi-module builds only. A single module doesn't shard —
+> use Gradle's `maxParallelForks` instead.
 
----
-
-## Why not just split by module count?
-
-|  | Count-based | **Shardwise** |
-|---|---|---|
-| Balances by | how *many* modules | how *long* they take |
-| Slow node | drags the whole build | packed first, LPT |
-| Needs a SaaS account | — | **no** |
-| Uploads your build data | — | **no** |
-| Coordinator between nodes | sometimes | **no** — deterministic |
-| Cost | your CI bill | **free, Apache-2.0** |
-| Backing out | rewrite the split | **delete one line** |
+<sub>Illustrative. On one node today? [How many nodes](#how-many-nodes) shows the speedup.</sub>
 
 ---
 
-## Add it in three commands
+## Get started
 
 ```kotlin
 // root build.gradle.kts
@@ -58,118 +53,102 @@ plugins {
 ```
 
 ```bash
-./gradlew test --no-build-cache     # 1. run the suite once
-./gradlew generateTestWeights       # 2. aggregate timings → test-weights.properties (commit it)
+./gradlew test --no-build-cache                   # real timings, not cached
+./gradlew generateTestWeights                     # writes test-weights.properties
+git add test-weights.properties && git commit     # commit it — nodes need identical input
 
-CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test   # 3. that's sharding. done.
+CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test    # sharded
 ```
 
-Then set the same two env vars per CI job. That's the whole integration.
+> [!WARNING]
+> `CI_NODE_INDEX` is **1-based**. On 0-based CI (GitHub Actions matrix,
+> CircleCI), add 1. Unset locally = every test runs.
 
-```text
-        CI_NODE_INDEX / CI_NODE_TOTAL          your CI already has these
-                     │
-                     ▼
- test-weights.properties ──► Greedy-LPT planner ──► node 1: :checkout :domain
-      (committed)              (deterministic)      node 2: :reporting
-                                                    node 3: :web :api :core
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','lineColor':'#437291','primaryColor':'#02303A','primaryTextColor':'#ffffff','primaryBorderColor':'#1BA39C'}}}%%
+flowchart LR
+  W["test-weights.properties"] --> P["Greedy-LPT<br/>planner"]
+  E["CI_NODE_INDEX<br/>CI_NODE_TOTAL"] --> P
+  P --> N1["node 1 · :checkout :domain"]
+  P --> N2["node 2 · :reporting"]
+  P --> N3["node 3 · :web :api :core"]
+
+  classDef input fill:#02303A,stroke:#437291,stroke-width:1px,color:#ffffff;
+  classDef hero  fill:#1BA39C,stroke:#02303A,stroke-width:2px,color:#02303A,font-weight:bold;
+  classDef node  fill:#2E4B5A,stroke:#437291,stroke-width:1px,color:#ffffff;
+
+  class W,E input;
+  class P hero;
+  class N1,N2,N3 node;
 ```
 
-Every node computes the *same* plan from the same inputs — no lock, no shared state.
+Same inputs, same plan on every node. No coordinator. Set the two env vars per CI job.
 
-<sub>Requires Gradle 8.11+, Java 17+, a multi-module build. Applied to the root project — module builds untouched.</sub>
+Config-cache safe. No SaaS, no network, no telemetry. Back out by deleting one line.
+Every module runs on exactly one node — never zero, so CI can't go green on untested
+code ([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
+
+<sub>Provider snippets → [install.md](docs/install.md).</sub>
 
 ---
 
-## What it looks like on a node
-
-Every sharded node prints its own plan at build start:
-
-```text
-  ╭─ S H A R D W I S E ──────────────────────────────────
-  │ ██████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒
-  │ ██████████████████████
-  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-  │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒
-  ├─ test ───────────────────────────────────────────────
-  │ Node          1 of 3
-  │ Running here  2 of 6 modules
-  │ Skipped here  4 (run on other nodes, shown as ':<module>:test SKIPPED')
-  │
-  │ Modules running here
-  │   :services:checkout
-  │   :common:domain
-  ╰──────────────────────────────────────────────────────
-```
-
-No guessing which node ran what. It's in the log.
-
----
-
-## The guarantee that matters
-
-> The worst outcome for a sharding tool isn't a slow build.
-> It's a module that runs on **zero** nodes — CI reports green for code nobody tested.
-
-Every default errs toward *running*:
-
-```text
- ✓  module missing from weights file   →  runs (gets defaultWeight)
- ✓  weights file stale or absent       →  runs (falls back to count-based)
- ✓  module missing from every plan     →  runs (coverage beats balance)
- ✗  CI_NODE_INDEX=0, "abc", or > total →  build FAILS immediately, loudly
-```
-
-Plus: every module lands on **exactly one** node, no duplication. No `afterEvaluate`, no eager task realization — configuration-cache safe. No network calls, no telemetry.
-
-<sub>Your only job: keep the weights file trustworthy — committed, or produced in the same pipeline. Everything else the plugin guarantees. See [Divergent weights](docs/troubleshooting.md#divergent-weights).</sub>
-
----
-
-## How many nodes should you buy?
+## How many nodes
 
 ```bash
 ./gradlew shardwiseAnalyze
 ```
 
-A module never splits, so your heaviest one is a hard floor on wall time:
+All on one node → add nodes, wall time drops. Heaviest module is the floor.
 
 ```text
-  1 node   ████████████████████████████████  4810ms
-  2 nodes  ████████████████                  2405ms
-  3 nodes  ████████████                      1840ms   ← floor (:reporting)
-  6 nodes  ████████████                      1840ms   ← same wall, 2× the bill
-                                             ▲
-                                             └─ :reporting alone = 1840ms
+  1 node   ████████████████████████  4810ms
+  2 nodes  ████████████             2405ms
+  3 nodes  █████████                1840ms  ◄ floor
+  6 nodes  █████████                1840ms  ◄ no gain
 ```
 
-**Rule of thumb: your heaviest module sets the floor.** Nodes past that point cost money and save nothing — split the heavy module to go lower.
+`◄ floor` = heaviest module (`:reporting`). Past it, nodes idle — split it to go lower.
+
+---
+
+## Per-node output
+
+Every sharded node prints its own plan at build start:
+
+```text
+── SHARDWISE · test ──────────────
+
+  Node          1 of 3
+  Running here  2 of 6 modules
+  Skipped here  4 (on other nodes)
+
+  Modules   :services:checkout
+            :common:domain
+
+──────────────────────────────────
+```
 
 ---
 
 ## Docs
 
-**Starting out?** [Install](docs/install.md) → [Self-updating weights](docs/self-updating-weights.md)
-**Replacing hand-rolled sharding?** [Migration tutorial](docs/tutorial-migrate.md)
+| Page | Covers |
+|------|--------|
+| [Install](docs/install.md) | Apply, configure tasks, any CI provider |
+| [Self-updating weights](docs/self-updating-weights.md) | Generate + auto-refresh `test-weights.properties` |
+| [Migration](docs/tutorial-migrate.md) | Step-by-step, from hand-rolled sharding |
+| [Configuration](docs/configuration.md) | `shardwise {}`, `PlanDetail`, plan-only, weights format |
+| [How it works](docs/how-it-works.md) | Greedy-LPT, 4/3 bound, coverage guarantee, rationale |
+| [Troubleshooting](docs/troubleshooting.md) | Common CI and dev issues |
 
-| Page | What it covers |
-|------|---------------|
-| [Installation and CI setup](docs/install.md) | Apply the plugin, configure tasks, wire up any CI provider |
-| [Self-updating weights](docs/self-updating-weights.md) | Generate `test-weights.properties` and refresh it automatically |
-| [Migration tutorial](docs/tutorial-migrate.md) | A real migration, step by step |
-| [Configuration reference](docs/configuration.md) | `shardwise {}` extension, `PlanDetail`, plan-only mode, weights format |
-| [How it works](docs/how-it-works.md) | Greedy-LPT, the 4/3 approximation bound, design rationale |
-| [Troubleshooting](docs/troubleshooting.md) | Diagnostics for common CI and dev issues |
+Shards `test`, `integrationTest`, or any `Test` task — independent plan each.
 
-Shard `test`, `integrationTest`, or any custom `Test` task — each gets its own independent plan.
-
-<sub>Pre-1.0: the API may change between releases. The [CHANGELOG](CHANGELOG.md) records every break.</sub>
+<sub>Pre-1.0: API may change between releases. See [CHANGELOG](CHANGELOG.md).</sub>
 
 ---
 
 ## Contributing
 
-Bug fixes and improvements welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup and tooling.
-Maintained by a single author: [SUPPORT.md](SUPPORT.md) for expectations, [SECURITY.md](SECURITY.md) for vulnerability reporting.
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md) · single maintainer.
 
 **License:** [Apache-2.0](LICENSE)
