@@ -25,6 +25,22 @@ jobs:
         with:
           persist-credentials: false
 
+      # Fail fast if the tag and the built version disagree — otherwise the
+      # portal would publish one version while the release notes describe
+      # another. Reads `version = "x.y.z"` straight from build.gradle.kts.
+      - name: Guard tag matches build version
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag_version="${VERSION#v}"
+          build_version="$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts)"
+          if [ "$tag_version" != "$build_version" ]; then
+            echo "::error::tag $VERSION (version $tag_version) does not match build.gradle.kts version $build_version"
+            exit 1
+          fi
+          echo "tag and build version agree: $build_version"
+
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
@@ -48,10 +64,27 @@ jobs:
     permissions:
       contents: read
       id-token: write # Sigstore OIDC signing during publishPlugins
+      attestations: write # SLSA build provenance attestation
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Replay guard: a re-pushed or moved tag must not re-publish. If a
+      # GitHub Release already exists for this tag, the version was already
+      # shipped — fail before touching the portal or signing anything.
+      - name: Guard against re-publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" \
+              --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "::error::release $VERSION already exists — refusing to re-publish"
+            exit 1
+          fi
+          echo "no existing release for $VERSION — proceeding"
 
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
@@ -70,6 +103,14 @@ jobs:
           # Enables Sigstore signing (off by default so local and e2e
           # publishToMavenLocal runs do not need an OIDC provider).
           SIGSTORE_SIGN: "true"
+
+      # SLSA build provenance: binds each jar to this workflow run + commit,
+      # verifiable with `gh attestation verify`. Sigstore signs the bytes;
+      # this proves who built them and from what source.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-path: build/libs/*.jar
 
       # Hand the signed artifacts to the release-notes job so it can attach
       # them to the GitHub Release (OpenSSF Scorecard Signed-Releases check).
