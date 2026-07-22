@@ -12,18 +12,12 @@ API may change between minor versions; every break is listed under its release.
 
 ### 📚 Documentation
 
-- Redesign README: teal palette, cohesive badge row, themed mermaid, GitHub
-  alert callouts, mobile-safe charts
-- Add a theme-adaptive before/after logo (`docs/assets/shardwise-logo-*.svg`)
-- Restructure README: problem first, add "Is this for you?" and "Configure"
-- Fix `shardwiseAnalyze` sample: add `p99`, `TOP 3` → `TOP 6`, wrong `median`
-- Rescale the wall-time chart to minutes, bar lengths matching the numbers
+- Rebuild the README: new logo and visual identity, problem-first structure,
+  tightened prose across every `docs/` page
 - Document the `test-weights.properties` format and its `:` → `/` key rule
-- Move the shard dashboard to `configuration.md` as `PlanDetail.FULL` output
-- Move the coverage guarantee to `how-it-works.md`; link it from the README
-- Fix stale install-snippet version (`0.3.0` → `0.4.1`) in `install.md` and
-  `tutorial-migrate.md`
-- Tighten prose across the README and all `docs/` pages
+- Move the shard dashboard and coverage guarantee into the reference pages
+- Fix stale samples and install snippets (`shardwiseAnalyze` output, wall-time
+  chart, `0.3.0` → `0.4.1`)
 - Correct `how-it-works.md`: only one CI variable set without the other fails
   the build; both unset stays a no-op
 
