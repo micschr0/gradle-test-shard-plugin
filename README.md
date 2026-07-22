@@ -84,12 +84,15 @@ CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test
 ```
 
 > [!WARNING]
-> `CI_NODE_INDEX` is **1-based**. On 0-based CI (GitHub Actions matrix,
-> CircleCI), add 1. With both variables unset, the plugin is a no-op and every
-> test runs.
+> `CI_NODE_INDEX` counts from **1**, not 0. CircleCI, Buildkite and Bitbucket
+> hand you a 0-based index, so add 1 there. A `0` fails the build instead of
+> quietly running the wrong shard.
 
-Every module lands on exactly one node, never zero. Unknown modules, unknown
-task names, and stale weights all default to *running*
+Set neither variable and nothing is skipped — that is why local builds run the
+full suite.
+
+No test can fall through the cracks: when the plugin is unsure about a module,
+an unknown task name, or an outdated weights file, it runs the tests
 ([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
 
 <sub>Prefer weights refreshed from CI? See [self-updating weights](docs/self-updating-weights.md).
