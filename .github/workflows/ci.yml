@@ -194,11 +194,11 @@ jobs:
       - name: Re-attach HEAD to a branch for glci
         run: git checkout -B ci-e2e-head
 
-      - uses: ./.github/actions/setup-jvm
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          cache-read-only: "true"
-
+      # No JDK and no Gradle cache here on purpose: nothing in this job runs on
+      # the runner's JVM. glci is a static Go binary, and every ./gradlew call
+      # happens inside a scenario container with its own GRADLE_USER_HOME. A
+      # setup-jvm step would restore a several-hundred-MB cache, nine times, for
+      # a toolchain no step touches.
       - name: Cache glci binary
         id: cache-glci
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
