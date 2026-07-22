@@ -27,8 +27,7 @@
 3 · by time   ██████████    █████████     █████████     1840 ms  ← packed by runtime
 ```
 
-Modules packed by measured test runtime, not count. Every module runs on exactly
-one node — same suite, same coverage.
+Modules packed by measured test runtime, not count. Same suite, same coverage.
 
 <sub>Illustrative. [How many nodes →](#how-many-nodes)</sub>
 
@@ -55,7 +54,7 @@ CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test    # sharded
 > `CI_NODE_INDEX` is **1-based**. On 0-based CI (GitHub Actions matrix,
 > CircleCI), add 1. Unset locally = every test runs.
 
-Set the two env vars per CI job — no coordinator, every node derives the same plan.
+Set the two env vars per CI job. No coordinator. Every node derives the same plan.
 
 ```text
 config-cache safe   ·   no SaaS · no network · no telemetry   ·   remove 1 line to revert
