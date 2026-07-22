@@ -15,6 +15,7 @@ API may change between minor versions; every break is listed under its release.
 
 - Attach signed jars and their Sigstore bundles to each GitHub Release
 - Guard releases against tag/version drift and re-publish of an existing tag
+- Skip the build/test/e2e suite on documentation-only changes
 
 ### 🧪 Testing
 
