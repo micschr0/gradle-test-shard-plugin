@@ -32,9 +32,10 @@ jobs:
       contents: read
     timeout-minutes: 5
     outputs:
-      # 'true' unless EVERY changed file is documentation. The expensive jobs
-      # gate on this, so a mixed docs+code PR still runs the full suite.
-      code: ${{ steps.filter.outputs.docs == 'false' }}
+      # 'true' (run the full suite) unless EVERY changed file is documentation.
+      # docs_count counts changed files matching a doc glob; all_count counts
+      # every changed file. Equal counts ⇒ the change is doc-only ⇒ skip.
+      code: ${{ steps.filter.outputs.docs_count != steps.filter.outputs.all_count }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,12 +44,11 @@ jobs:
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
-          # predicate-quantifier 'every' makes `docs` true only when ALL changed
-          # files match a doc glob (added in v4). An allowlist of doc paths is
-          # safer than the inverse: a new, unlisted path is not a doc, so it runs
-          # the full suite. Both `*.md` and `**/*.md` are needed — the latter does
-          # not match root-level files like README.md in picomatch.
-          predicate-quantifier: every
+          # `docs` matches a changed file against ANY of these globs (default
+          # quantifier). `all` matches everything. Doc-only is then docs_count ==
+          # all_count. A new, unlisted path is not a doc, so it counts toward
+          # all_count but not docs_count and correctly triggers the full suite.
+          # `*.md` covers root files (README.md); `**/*.md` covers nested ones.
           filters: |
             docs:
               - '*.md'
@@ -56,6 +56,8 @@ jobs:
               - 'LICENSE'
               - '.gitignore'
               - 'docs/**'
+            all:
+              - '**'
 
   # ── fast feedback: unit + functional + apiCheck (~30s) ──────────────────
   check:
