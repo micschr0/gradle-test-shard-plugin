@@ -1,0 +1,31 @@
+name: Setup JVM
+description: >-
+  Provision the JDK and set up Gradle with a caller-chosen cache mode. The
+  caller must run actions/checkout first — a local composite action cannot
+  check out the repo it lives in.
+
+inputs:
+  java-version:
+    description: Temurin JDK version to provision.
+    default: "17"
+  cache-read-only:
+    description: >-
+      Pass-through to setup-gradle cache-read-only. Leave unset to write the
+      cache only on main. Ignored when cache-disabled is true.
+    default: ${{ github.ref != 'refs/heads/main' }}
+  cache-disabled:
+    description: Disable the Gradle cache entirely (use on publish jobs).
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      with:
+        distribution: temurin
+        java-version: ${{ inputs.java-version }}
+
+    - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      with:
+        cache-read-only: ${{ inputs.cache-read-only }}
+        cache-disabled: ${{ inputs.cache-disabled }}

@@ -41,14 +41,9 @@ jobs:
           fi
           echo "tag and build version agree: $build_version"
 
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      - uses: ./.github/actions/setup-jvm
         with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          cache-disabled: true
+          cache-disabled: "true"
 
       - run: ./gradlew check
 
@@ -86,14 +81,9 @@ jobs:
           fi
           echo "no existing release for $VERSION — proceeding"
 
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      - uses: ./.github/actions/setup-jvm
         with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          cache-disabled: true
+          cache-disabled: "true"
 
       - name: Publish to the Plugin Portal
         run: ./gradlew publishPlugins
