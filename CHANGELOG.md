@@ -6,20 +6,6 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
-### 📚 Documentation
-
-- Restructure README around reader questions: problem statement first, new
-  "Is this for you?" and "Configure" sections
-- Correct `shardwiseAnalyze` sample output: add missing `p99`, fix `TOP 3` to
-  the dynamic `TOP 6`, fix a wrong `median` value
-- Rescale the wall-time chart to minutes with bar lengths matching the numbers
-- Move the shard dashboard from the README into `configuration.md`, where it
-  documents `PlanDetail.FULL`
-- Fix install-snippet version `0.3.0` → `0.4.1` in `install.md` and
-  `tutorial-migrate.md` (missed by the 0.4.1 entry below)
-- Show the `test-weights.properties` format in the README, including the
-  `:` → `/` key rule for nested modules
-
 ## [0.4.1] — 2026-07-22
 
 **Breaking changes:** none.
@@ -29,9 +15,14 @@ API may change between minor versions; every break is listed under its release.
 - Redesign README: teal palette, cohesive badge row, themed mermaid, GitHub
   alert callouts, mobile-safe charts
 - Add a theme-adaptive before/after logo (`docs/assets/shardwise-logo-*.svg`)
-- Rewrite the sharding section chart-first for single-node readers; trim prose
+- Restructure README: problem first, add "Is this for you?" and "Configure"
+- Fix `shardwiseAnalyze` sample: add `p99`, `TOP 3` → `TOP 6`, wrong `median`
+- Rescale the wall-time chart to minutes, bar lengths matching the numbers
+- Document the `test-weights.properties` format and its `:` → `/` key rule
+- Move the shard dashboard to `configuration.md` as `PlanDetail.FULL` output
 - Move the coverage guarantee to `how-it-works.md`; link it from the README
-- Fix stale install-snippet version (`0.3.0` → `0.4.1`)
+- Fix stale install-snippet version (`0.3.0` → `0.4.1`) in `install.md` and
+  `tutorial-migrate.md`
 
 ### 🔒 Security
 
