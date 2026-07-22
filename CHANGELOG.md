@@ -6,6 +6,25 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-07-22
+
+**Breaking changes:** none.
+
+### 📚 Documentation
+
+- Rebuild the README: new logo and visual identity, problem-first structure,
+  tightened prose across every `docs/` page
+- Document the `test-weights.properties` format and its `:` → `/` key rule
+- Move the shard dashboard and coverage guarantee into the reference pages
+- Fix stale samples and install snippets (`shardwiseAnalyze` output, wall-time
+  chart, `0.3.0` → `0.4.1`)
+- Correct `how-it-works.md`: only one CI variable set without the other fails
+  the build; both unset stays a no-op
+
+### ⚙️ Miscellaneous Tasks
+
+- Drop per-file SPDX headers; the root `LICENSE` remains authoritative
+
 ### 🔒 Security
 
 - Publish SLSA build provenance attestations for release jars

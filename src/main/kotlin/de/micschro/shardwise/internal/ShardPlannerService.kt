@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-
 package de.micschro.shardwise.internal
 
 import org.gradle.api.provider.MapProperty
