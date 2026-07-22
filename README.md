@@ -29,8 +29,8 @@ Modules packed by measured test runtime, not count. Same suite, same coverage.
 
 ## Get started
 
-Record weights once locally. Then set two env vars per CI job.
-No coordinator. Every node derives the same plan.
+Record weights once locally. Set two env vars per CI job.
+No coordinator: every node derives the same plan.
 
 ```kotlin
 // root build.gradle.kts
@@ -40,14 +40,14 @@ plugins {
 ```
 
 ```bash
-# once, locally — measure real per-module timings
+# once, locally: measure real per-module timings
 ./gradlew test --no-build-cache
 ./gradlew generateTestWeights                  # writes test-weights.properties
-git add test-weights.properties                # commit — every node needs identical input
+git add test-weights.properties                # commit: every node needs identical input
 ```
 
 ```bash
-# per CI job — the only thing CI sets
+# per CI job, the only thing CI sets
 CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test
 ```
 
@@ -87,7 +87,34 @@ flowchart LR
 
 </details>
 
-<sub>Provider snippets → [install.md](docs/install.md).</sub>
+<sub>Provider snippets: [install.md](docs/install.md).</sub>
+
+---
+
+## Confirm it sharded
+
+Every sharded `test` run prints a banner: which node, and which modules ran
+here versus skipped on other nodes. Node 1 and node 2 show different module
+sets with no overlap. That is the split working.
+
+```text
+  ╭─ S H A R D W I S E ──────────────────────────────────
+  │ ██████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+  │ ██████████████████████
+  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+  │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+  ├─ test ───────────────────────────────────────────────
+  │ Node          1 of 3
+  │ Running here  2 of 6 modules
+  │ Skipped here  4 (run on other nodes, shown as ':<module>:test SKIPPED')
+  │
+  │ Modules running here
+  │   :services:checkout
+  │   :common:domain
+  ╰──────────────────────────────────────────────────────
+```
+
+All 6 modules run once across the 3 nodes. Never zero, never twice.
 
 ---
 
@@ -98,35 +125,23 @@ flowchart LR
 ```
 
 ```text
-  1 node   ████████████████████████  4810 ms
-  2 nodes  ████████████             2405 ms
-  3 nodes  █████████                1840 ms  ◄ floor
-  6 nodes  █████████                1840 ms  ◄ no gain
+[shardwise] WEIGHTS ANALYSIS
+[shardwise]   modules:   6
+[shardwise]   total:     4810ms
+[shardwise]   mean:      801ms
+[shardwise]   median:    700ms
+[shardwise]   p95:       1840ms
+[shardwise]   imbalance: 2.30x
+[shardwise]
+[shardwise] TOP 3 HEAVIEST
+[shardwise]   1. :reporting 1840ms (38.3%)
+[shardwise]   2. :web 900ms (18.7%)
+[shardwise]   3. :api 780ms (16.2%)
 ```
 
-Floor = heaviest module (`:reporting`). Past it, extra nodes idle. Split it to go lower.
-
----
-
-<details>
-<summary><b>What a sharded node prints</b></summary>
-
-<br/>
-
-```text
-── SHARDWISE · test ──────────────
-
-  Node          1 of 3
-  Running here  2 of 6 modules
-  Skipped here  4 (on other nodes)
-
-  Modules   :services:checkout
-            :common:domain
-
-──────────────────────────────────
-```
-
-</details>
+The heaviest module is the wall-time floor: no node finishes faster than
+`:reporting` at 1840ms, whatever the node count. `imbalance` is that module
+over the mean. Split the heaviest module to push the floor lower.
 
 ---
 
@@ -141,7 +156,7 @@ Floor = heaviest module (`:reporting`). Past it, extra nodes idle. Split it to g
 | [How it works](docs/how-it-works.md) | Greedy-LPT, 4/3 bound, coverage guarantee, rationale |
 | [Troubleshooting](docs/troubleshooting.md) | Common CI and dev issues |
 
-Shards `test`, `integrationTest`, or any `Test` task — independent plan each.
+Shards `test`, `integrationTest`, or any `Test` task, one plan each.
 
 <sub>Pre-1.0: API may change between releases. See [CHANGELOG](CHANGELOG.md).</sub>
 
