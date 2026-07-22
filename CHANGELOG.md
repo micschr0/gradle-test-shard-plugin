@@ -6,6 +6,16 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
+### 🔒 Security
+
+- Publish SLSA build provenance attestations for release jars
+- Reproducible jars: strip timestamps and fix entry order
+
+### 🔧 CI
+
+- Attach signed jars and their Sigstore bundles to each GitHub Release
+- Guard releases against tag/version drift and re-publish of an existing tag
+
 ### 🧪 Testing
 
 - Fail `check` on version drift between the root and the e2e consumer

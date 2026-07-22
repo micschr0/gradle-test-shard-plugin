@@ -105,6 +105,13 @@ tasks.named("check") { dependsOn("verifyConsumerVersion") }
 
 tasks.withType<Test>().configureEach { useJUnitPlatform() }
 
+// Reproducible jars: strip timestamps and fix entry order so an independent
+// rebuild byte-matches the signed/published artifact.
+tasks.withType<Jar>().configureEach {
+    isReproducibleFileOrder = true
+    isPreserveFileTimestamps = false
+}
+
 tasks.validatePlugins {
     enableStricterValidation = true
     failOnWarning = true

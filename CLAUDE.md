@@ -13,10 +13,14 @@ nodes via Greedy-LPT bin-packing. See `README.md` for consumer-facing usage.
 - NEVER skip `functionalTest` for changes to `ShardwisePlugin`, planner services, or `NodeEnvValueSource`
 - NEVER batch unrelated changes in one commit — use work-unit-commits (setup / fix / verify)
 - NEVER add `Co-Authored-By` to commits
+- NEVER push directly to `main` — it is protected; open a PR (branch → push → PR → green checks → merge)
+- NEVER pass `gh pr create --body` for real PRs — it bypasses `.github/PULL_REQUEST_TEMPLATE.md`; fill the template instead
+- NEVER bump the version without updating all three: `build.gradle.kts`, `CHANGELOG.md`, `e2e/consumer/build.gradle.kts` (`verifyConsumerVersion` enforces the last)
 
 ## ALWAYS
 
-- ALWAYS use conventional commit messages (`type: subject`)
+- ALWAYS use conventional commit messages (`type: subject`) — the PR title follows the same convention
+- ALWAYS fill the PR template: What/Why, `Closes #issue`, breaking-changes line, and the checklist
 - ALWAYS update `CHANGELOG.md` `[Unreleased]` for user-visible changes
 - ALWAYS add `@since` annotation to new public API
 - ALWAYS run `./gradlew check` before saying "done"

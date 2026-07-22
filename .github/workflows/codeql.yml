@@ -3,6 +3,12 @@ name: CodeQL
 on:
   push:
     branches: [main]
+    # Only filter the push trigger. CodeQL is a required status check, so the
+    # pull_request trigger must stay unfiltered — a skipped required check on a
+    # doc-only PR would block the merge instead of passing.
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
   pull_request:
     branches: [main]
   schedule:

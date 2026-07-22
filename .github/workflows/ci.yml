@@ -34,15 +34,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      - uses: ./.github/actions/setup-jvm
         with:
-          distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-
 
       - name: ShellCheck
         run: shellcheck e2e/run.sh e2e/run-docker.sh e2e/scenarios.sh e2e/scripts/*.sh
@@ -160,14 +154,10 @@ jobs:
       - name: Re-attach HEAD to a branch for glci
         run: git checkout -B ci-e2e-head
 
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      - uses: ./.github/actions/setup-jvm
         with:
-          distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          cache-read-only: true
+          cache-read-only: "true"
 
       - name: Cache glci binary
         id: cache-glci
