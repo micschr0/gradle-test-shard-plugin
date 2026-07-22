@@ -144,9 +144,17 @@ jobs:
             image: gradle:8.14-jdk17
     name: "e2e ${{ matrix.id }}: ${{ matrix.name }}"
     steps:
+      # glci clones this checkout inside its runner container and checks out the
+      # commit at HEAD. On a pull_request, actions/checkout defaults to the
+      # ephemeral refs/pull/N/merge commit, whose tree glci cannot read from the
+      # shallow clone ("fatal: unable to read tree"). Pin to the real branch-head
+      # commit so the clone resolves; on push, head.sha is empty and this falls
+      # back to the default checkout.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
