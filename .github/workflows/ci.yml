@@ -3,10 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE"]
   pull_request:
     branches: [main]
-    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,9 +20,45 @@ env:
   JAVA_VERSION: "17"
 
 jobs:
+  # ── gate: does this change touch anything that needs building/testing? ───
+  # A doc-only change (README, notes, this workflow's own docs) does not need
+  # the ~7-min check + e2e matrix. This job is cheap (~5s) and drives the `if:`
+  # on the expensive jobs. The `ci-success` aggregate below is what branch
+  # protection requires, so skipped expensive jobs never leave a check pending.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    outputs:
+      # 'true' unless EVERY changed file is documentation. The expensive jobs
+      # gate on this, so a mixed docs+code PR still runs the full suite.
+      code: ${{ steps.filter.outputs.docs == 'false' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          # predicate-quantifier 'every' makes `docs` true only when ALL changed
+          # files match a doc glob. An allowlist of doc paths is safer than the
+          # inverse: a new, unlisted path is not a doc, so it runs the full suite.
+          predicate-quantifier: every
+          filters: |
+            docs:
+              - '**/*.md'
+              - 'LICENSE'
+              - '.gitignore'
+              - 'docs/**'
+
   # ── fast feedback: unit + functional + apiCheck (~30s) ──────────────────
   check:
     name: Check
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -90,7 +124,8 @@ jobs:
   # separate processes lives here — planner balance, weights parsing and invalid
   # env values are covered far more cheaply by the unit and TestKit suites.
   e2e-glci:
-    needs: check
+    needs: [changes, check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -337,3 +372,31 @@ jobs:
           # empty string, which would leave the action unauthenticated, so
           # fall back to the default GITHUB_TOKEN.
           token: ${{ secrets.ZIZMOR_PAT || github.token }}
+
+  # ── aggregate gate: the ONE required status check ──────────────────────
+  # Branch protection requires this single job, not `check`/`e2e`/`zizmor`
+  # individually. On a doc-only change the expensive jobs are skipped, not
+  # failed — and a skipped required check would otherwise block the merge
+  # forever. This job runs always, and passes when every dependency either
+  # succeeded or was skipped, failing only on a real failure or cancellation.
+  ci-success:
+    name: CI Success
+    needs: [changes, check, e2e-glci, zizmor]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Verify no dependency failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -euo pipefail
+          echo "dependency results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::a required job did not succeed ($r)"
+              exit 1
+            fi
+          done
+          echo "all dependencies succeeded or were skipped"
