@@ -98,27 +98,25 @@ Per-provider CI snippets live in [install.md](docs/install.md).</sub>
 <details>
 <summary>How the plan is built</summary>
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','lineColor':'#437291','primaryColor':'#02303A','primaryTextColor':'#ffffff','primaryBorderColor':'#1BA39C'}}}%%
-flowchart LR
-  W["test-weights.properties"] --> P["Greedy-LPT<br/>planner"]
-  E["CI_NODE_INDEX<br/>CI_NODE_TOTAL"] --> P
-  P --> N1["node 1 · :reporting"]
-  P --> N2["node 2 · :web :domain :core"]
-  P --> N3["node 3 · :api :services:checkout"]
+Longest-processing-time-first: sort modules by weight descending, then hand each
+one to whichever node is currently lightest. Six modules on three nodes:
 
-  classDef input fill:#02303A,stroke:#437291,stroke-width:1px,color:#ffffff;
-  classDef hero  fill:#1BA39C,stroke:#02303A,stroke-width:2px,color:#02303A,font-weight:bold;
-  classDef node  fill:#2E4B5A,stroke:#437291,stroke-width:1px,color:#ffffff;
-
-  class W,E input;
-  class P hero;
-  class N1,N2,N3 node;
+```text
+module               weight │ node 1   node 2   node 3
+────────────────────────────┼──────────────────────────
+:reporting             1840 │ ▶ 1840        0        0
+:web                    900 │   1840    ▶ 900        0
+:api                    780 │   1840      900    ▶ 780
+:services:checkout      600 │   1840      900   ▶ 1380
+:domain                 400 │   1840   ▶ 1300     1380
+:core                   290 │   1840   ▶ 1590     1380
+────────────────────────────┼──────────────────────────
+                            │   1840     1590     1380   ← 1840 is the wall time
 ```
 
-Longest-processing-time-first: sort modules by weight descending, put each on
-the node with the least load so far. Identical inputs produce identical plans on
-every node, with no cross-node communication.
+The heaviest module goes first and never shares a node with another heavy one.
+Ties resolve to the lowest node number, so identical inputs produce identical
+plans on every node, with no cross-node communication.
 
 </details>
 
