@@ -79,6 +79,30 @@ gradlePlugin {
 // Custom JVM test suites are not auto-wired into `check` — wire functionalTest explicitly.
 tasks.named("check") { dependsOn(tasks.named("functionalTest")) }
 
+// The e2e consumer hardcodes the plugin version in its `plugins {}` block, which
+// Gradle evaluates before the script and so cannot read a shared value. This task
+// keeps the copy honest: it fails `check` locally and in CI the moment the consumer
+// drifts from the root version — long before the slow e2e pipeline would catch it.
+// CC-safe: the version and file text are captured as plain values at configuration
+// time, so the task action closes over no project references.
+val rootVersion = version.toString()
+val consumerBuildText = providers.fileContents(
+    layout.projectDirectory.file("e2e/consumer/build.gradle.kts"),
+).asText
+tasks.register("verifyConsumerVersion") {
+    val expected = rootVersion
+    val text = consumerBuildText.get()
+    doLast {
+        val consumerVersion = Regex("""id\("de\.micschro\.shardwise"\) version "([^"]+)"""")
+            .find(text)?.groupValues?.get(1)
+            ?: error("could not find the shardwise plugin version in e2e/consumer/build.gradle.kts")
+        require(consumerVersion == expected) {
+            "version drift: root is $expected but e2e/consumer/build.gradle.kts pins $consumerVersion — update the consumer"
+        }
+    }
+}
+tasks.named("check") { dependsOn("verifyConsumerVersion") }
+
 tasks.withType<Test>().configureEach { useJUnitPlatform() }
 
 tasks.validatePlugins {
