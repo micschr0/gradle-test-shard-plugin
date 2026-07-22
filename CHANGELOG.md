@@ -17,6 +17,8 @@ API may change between minor versions; every break is listed under its release.
   documents `PlanDetail.FULL`
 - Fix install-snippet version `0.3.0` → `0.4.1` in `install.md` and
   `tutorial-migrate.md` (missed by the 0.4.1 entry below)
+- Show the `test-weights.properties` format in the README, including the
+  `:` → `/` key rule for nested modules
 
 ## [0.4.1] — 2026-07-22
 
