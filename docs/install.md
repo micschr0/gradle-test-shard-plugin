@@ -25,7 +25,7 @@ Add the plugin to the root project's `build.gradle.kts`:
 ```kotlin
 // build.gradle.kts (root project only)
 plugins {
-    id("de.micschro.shardwise") version "0.3.0"
+    id("de.micschro.shardwise") version "0.4.1"
 }
 ```
 

@@ -6,6 +6,18 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
+### 📚 Documentation
+
+- Restructure README around reader questions: problem statement first, new
+  "Is this for you?" and "Configure" sections
+- Correct `shardwiseAnalyze` sample output: add missing `p99`, fix `TOP 3` to
+  the dynamic `TOP 6`, fix a wrong `median` value
+- Rescale the wall-time chart to minutes with bar lengths matching the numbers
+- Move the shard dashboard from the README into `configuration.md`, where it
+  documents `PlanDetail.FULL`
+- Fix install-snippet version `0.3.0` → `0.4.1` in `install.md` and
+  `tutorial-migrate.md` (missed by the 0.4.1 entry below)
+
 ## [0.4.1] — 2026-07-22
 
 **Breaking changes:** none.

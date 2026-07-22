@@ -16,21 +16,41 @@
 
 ---
 
+Splitting a Gradle test suite across CI nodes by module count leaves nodes
+idle: one node draws the slow modules, the rest finish early and wait. Shardwise
+packs modules by their **measured** runtime instead, so every node finishes at
+roughly the same time.
+
 ```text
-              node 1        node 2        node 3     wall time
-1 node        ████████████████████████                 4810 ms
-3 · by count  ████████████  ████████      ████          2440 ms  ← slowest node wins
-3 · by time   ██████████    █████████     █████████     1840 ms  ← packed by runtime
+                node 1        node 2        node 3      wall time
+1 node          ████████████████████████                  24 min
+3 · by count    ████████████  ████████      ████          12 min  ← slowest node wins
+3 · by runtime  █████████     ████████      ███████        9 min  ← packed by runtime
 ```
 
-Modules packed by measured test runtime, not count. Same suite, same coverage.
+Same suite, same tests, same coverage — only the assignment changes.
+
+---
+
+## Is this for you?
+
+Shardwise pays off when all three hold:
+
+- **Multi-module build.** Sharding happens per Gradle module, so a single-module
+  build has nothing to split.
+- **Tests dominate wall time.** If compilation is your bottleneck, fix that first.
+- **Uneven modules.** If every module takes the same time, splitting by count is
+  already optimal and you need no plugin.
+
+Nothing runs off your machine: no SaaS, no network calls, no telemetry.
+Configuration-cache safe. Removing the plugin line restores the old behaviour.
 
 ---
 
 ## Get started
 
-Record weights once locally. Set two env vars per CI job.
-No coordinator: every node derives the same plan.
+Record weights once locally, then set two environment variables per CI job.
+There is no coordinator — every node derives the same plan from the same file.
 
 ```kotlin
 // root build.gradle.kts
@@ -41,9 +61,9 @@ plugins {
 
 ```bash
 # once, locally: measure real per-module timings
-./gradlew test --no-build-cache
-./gradlew generateTestWeights                  # writes test-weights.properties
-git add test-weights.properties                # commit: every node needs identical input
+./gradlew test --no-build-cache     # cached tasks report no timings
+./gradlew generateTestWeights       # writes test-weights.properties
+git add test-weights.properties     # commit: every node needs identical input
 ```
 
 ```bash
@@ -53,16 +73,15 @@ CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test
 
 > [!WARNING]
 > `CI_NODE_INDEX` is **1-based**. On 0-based CI (GitHub Actions matrix,
-> CircleCI), add 1. Unset locally = every test runs.
+> CircleCI), add 1. With both variables unset, the plugin is a no-op and every
+> test runs.
 
-<sub>Keep weights fresh from CI instead? See [self-updating weights](docs/self-updating-weights.md).</sub>
-
-```text
-config-cache safe   ·   no SaaS · no network · no telemetry   ·   remove 1 line to revert
-```
-
-Every module runs on exactly one node, never zero
+Every module lands on exactly one node, never zero — unknown modules, unknown
+task names and stale weights all default to *running*
 ([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
+
+<sub>Prefer weights refreshed from CI? See [self-updating weights](docs/self-updating-weights.md).
+Per-provider CI snippets live in [install.md](docs/install.md).</sub>
 
 <details>
 <summary>How the plan is built</summary>
@@ -85,40 +104,34 @@ flowchart LR
   class N1,N2,N3 node;
 ```
 
+Longest-processing-time-first: sort modules by weight descending, put each on
+the node with the least load so far. Deterministic — identical inputs produce
+identical plans on every node, with no cross-node communication.
+
 </details>
 
-<sub>Provider snippets: [install.md](docs/install.md).</sub>
-
 ---
 
-## Confirm it sharded
+## Configure
 
-Every sharded `test` run prints a banner: which node, and which modules ran
-here versus skipped on other nodes. Node 1 and node 2 show different module
-sets with no overlap. That is the split working.
+The defaults shard the `test` task using `test-weights.properties`. Override
+only what you need:
 
-```text
-  ╭─ S H A R D W I S E ──────────────────────────────────
-  │ ██████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒
-  │ ██████████████████████
-  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-  │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒
-  ├─ test ───────────────────────────────────────────────
-  │ Node          1 of 3
-  │ Running here  2 of 6 modules
-  │ Skipped here  4 (run on other nodes, shown as ':<module>:test SKIPPED')
-  │
-  │ Modules running here
-  │   :services:checkout
-  │   :common:domain
-  ╰──────────────────────────────────────────────────────
+```kotlin
+// root build.gradle.kts
+shardwise {
+  taskNames.set(setOf("test", "integrationTest"))  // one plan per task
+  defaultWeight.set(10)                            // for modules without timings
+}
 ```
 
-All 6 modules run once across the 3 nodes. Never zero, never twice.
+Each task name gets its own independent plan. Full reference —
+`weightsFile`, `planDetail`, plan-only mode, weights file format — in
+[configuration.md](docs/configuration.md).
 
 ---
 
-## How many nodes
+## How many nodes do you need?
 
 ```bash
 ./gradlew shardwiseAnalyze
@@ -129,19 +142,27 @@ All 6 modules run once across the 3 nodes. Never zero, never twice.
 [shardwise]   modules:   6
 [shardwise]   total:     4810ms
 [shardwise]   mean:      801ms
-[shardwise]   median:    700ms
+[shardwise]   median:    600ms
 [shardwise]   p95:       1840ms
+[shardwise]   p99:       1840ms
 [shardwise]   imbalance: 2.30x
 [shardwise]
-[shardwise] TOP 3 HEAVIEST
+[shardwise] TOP 6 HEAVIEST
 [shardwise]   1. :reporting 1840ms (38.3%)
 [shardwise]   2. :web 900ms (18.7%)
 [shardwise]   3. :api 780ms (16.2%)
+[shardwise]   4. :checkout 600ms (12.5%)
+[shardwise]   5. :domain 400ms (8.3%)
+[shardwise]   6. :core 290ms (6.0%)
 ```
 
-The heaviest module is the wall-time floor: no node finishes faster than
-`:reporting` at 1840ms, whatever the node count. `imbalance` is that module
-over the mean. Split the heaviest module to push the floor lower.
+Your heaviest module is the wall-time floor: no node can finish before
+`:reporting` does, no matter how many nodes you add. `imbalance` is that
+floor divided by the mean — at `2.30x`, the heaviest module takes more than
+twice the average, so nodes past the third mostly idle. To go faster, split the
+heaviest module rather than adding nodes.
+
+Read-only: the task inspects weights and never runs a test.
 
 ---
 
@@ -154,11 +175,9 @@ over the mean. Split the heaviest module to push the floor lower.
 | [Migration](docs/tutorial-migrate.md) | Step-by-step, from hand-rolled sharding |
 | [Configuration](docs/configuration.md) | `shardwise {}`, `PlanDetail`, plan-only, weights format |
 | [How it works](docs/how-it-works.md) | Greedy-LPT, 4/3 bound, coverage guarantee, rationale |
-| [Troubleshooting](docs/troubleshooting.md) | Common CI and dev issues |
+| [Troubleshooting](docs/troubleshooting.md) | Verify the split, diagnose gaps and duplicates |
 
-Shards `test`, `integrationTest`, or any `Test` task, one plan each.
-
-<sub>Pre-1.0: API may change between releases. See [CHANGELOG](CHANGELOG.md).</sub>
+<sub>Pre-1.0: the API may change between releases. See [CHANGELOG](CHANGELOG.md).</sub>
 
 ---
 

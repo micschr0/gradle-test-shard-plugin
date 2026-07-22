@@ -79,7 +79,7 @@ In your root `build.gradle.kts`:
 ```kotlin
 plugins {
     // ... your existing plugins
-    id("de.micschro.shardwise") version "0.3.0"
+    id("de.micschro.shardwise") version "0.4.1"
 }
 ```
 
@@ -106,7 +106,7 @@ Notice which tasks ran: shard 1's deterministic plan assigned `:services:checkou
 
 ### If you see "Plugin 'de.micschro.shardwise' not found"
 
-You likely declared `id("de.micschro.shardwise") version "0.3.0"` in `plugins {}` but the plugin portal isn't in your `pluginManagement {}` repositories. Check your `settings.gradle.kts`:
+You likely declared `id("de.micschro.shardwise") version "0.4.1"` in `plugins {}` but the plugin portal isn't in your `pluginManagement {}` repositories. Check your `settings.gradle.kts`:
 
 ```kotlin
 pluginManagement {

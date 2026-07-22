@@ -34,6 +34,32 @@ shard. The plugin emits colour only when stdout is a TTY, so CI logs stay free
 of escape codes. The level affects output only: it never changes which module
 runs on which shard.
 
+At `FULL`, each sharded task logs a dashboard naming the node, the modules
+running on it, and how many were skipped because they belong elsewhere. It is
+the quickest confirmation that the split took effect — two nodes should list
+disjoint module sets:
+
+```text
+  ╭─ S H A R D W I S E ──────────────────────────────────
+  │ ██████████████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+  │ ██████████████████████
+  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+  │ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+  ├─ test ───────────────────────────────────────────────
+  │ Node          1 of 3
+  │ Running here  2 of 6 modules
+  │ Skipped here  4 (run on other nodes, shown as ':<module>:test SKIPPED')
+  │
+  │ Modules running here
+  │   :services:checkout
+  │   :common:domain
+  ╰──────────────────────────────────────────────────────
+```
+
+The top bar is the whole suite; the rows below it are the per-node loads. For a
+rigorous cross-node check see
+[troubleshooting: reproduce locally](troubleshooting.md#step-1--reproduce-locally).
+
 <a id="weights-file-format"></a>
 
 ## Weights file format
