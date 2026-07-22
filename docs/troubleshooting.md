@@ -19,7 +19,7 @@ variables manually and run with `--info`:
 CI_NODE_INDEX=2 CI_NODE_TOTAL=3 ./gradlew test --info
 ```
 
-The plugin is a no-op when both variables are unset — local reproduction
+The plugin is a no-op when both variables are unset, so local reproduction
 requires them. See [Step 1](#step-1--reproduce-locally) for a full
 cross-shard verification loop.
 
@@ -72,7 +72,7 @@ echo "=== Determinism check complete ==="
 
 A module that neither runs nor skips on any node means the plugin never saw it,
 or every node decided it belongs elsewhere. Six causes produce this symptom.
-Work down this tree, then jump to the matching section for the check and fix.
+Work down the tree, then jump to the matching section for the check and fix.
 
 ```mermaid
 flowchart TD
@@ -100,16 +100,16 @@ flowchart TD
 
 ### Built-in test filtering
 
-Shardwise skips whole modules, not individual tests within them. Gradle's own
+Shardwise skips whole modules, not individual tests inside them. Gradle's own
 filtering (`test.only()`, `--tests`) narrows the run *inside* the modules that
-survived the shard decision, so the two compose multiplicatively: a test can be
-filtered out on the one node that was supposed to run it.
+survived the shard decision, so the two compose: a test can be filtered out on
+the one node that was supposed to run it.
 
 **Check:** Look for `--tests` in the CI command line and `only()`/`filter {}` in
 the build scripts.
 
-**Fix:** Pick one mechanism. Use Shardwise to split across nodes, or use Gradle
-filtering to narrow a single run — not both in the same pipeline stage.
+**Fix:** Pick one mechanism. Use Shardwise to split across nodes, or Gradle
+filtering to narrow a single run, but never both in the same pipeline stage.
 
 ### Divergent weights
 
@@ -170,12 +170,11 @@ plan across nodes.
 
 ### CI runner clock-skewed weights
 
-A weights file regenerated from JUnit XML timestamps on a runner whose system
-clock is off by minutes or hours produces a file with different `# generated
-from` metadata or different content than the same file produced on another
-runner. Git sees the change, the next CI run re-generates fresh weights from
-stale measurements, and the bin-packer distributes load based on corrupted
-timing data — which may assign a heavy module to every node (or none).
+A runner whose system clock is off by minutes or hours regenerates the weights
+file with different header metadata or different content than another runner
+produces. Git sees the change, the next CI run regenerates fresh weights from
+stale measurements, and the bin-packer distributes load from corrupted timing
+data, which may assign a heavy module to every node or to none.
 
 **Check:** Compare the weights file from the two most recent CI runs:
 
@@ -183,9 +182,9 @@ timing data — which may assign a heavy module to every node (or none).
 git diff HEAD~1 -- test-weights.properties | head -20
 ```
 
-Unexpected diffs (no new modules were added, no timings changed) signal clock
-drift. The file's commit timestamp vs. the runner's timestamp also reveals
-drift when they differ by more than a few minutes.
+Unexpected diffs, where no module was added and no timing changed, signal clock
+drift. Comparing the file's commit timestamp against the runner's timestamp
+reveals the same drift when the two differ by more than a few minutes.
 
 **Fix:** Generate weights from a central job, not per-node. Use real wall-clock
 timings (`system.millis` or test framework defaults) rather than the runner's
@@ -196,7 +195,7 @@ timings (`system.millis` or test framework defaults) rather than the runner's
 Two modules with the same Gradle project path (`:services:checkout` and
 `:services:checkout` in different builds) collapse to the same key in the
 weights file. The bin-packer treats them as a single module and assigns one
-weight to both — one of them gets the slot, the other runs nowhere.
+weight to both: one gets the slot, the other runs nowhere.
 
 **Check:** List duplicate project paths:
 
@@ -211,21 +210,16 @@ Any duplicate output means two modules have the same path. Rename one in
 
 Do not retry a single failed parallel node. Rerun the full job (all nodes).
 
-**Why.** Shardwise assigns each module to exactly one node. When node 2 fails a
-test and you retry only node 2, the other nodes (1, 3) do not re-run either —
-but node 2's re-run also does not touch modules assigned to nodes 1 or 3. The
-result is a partial pass: the modules that passed on the first attempt on nodes
-1 and 3 pass once, and node 2 passes on the second attempt. No node checked the
-modules that were only on node 1 or 3 on the second run. Coverage is intact
-(those modules ran once on the first attempt), but you cannot prove it without
-inspecting both attempts' logs.
+**Why.** Shardwise assigns each module to exactly one node, so a retry of node 2
+alone re-runs only node 2's modules. Coverage survives, because nodes 1 and 3
+ran their modules on the first attempt, but no single attempt covers the whole
+build. Proving the suite passed then means reading two logs side by side.
 
-Rerunning the full job is safe and unambiguous: every module runs exactly once
-in a single coordinated batch. The cost is duplication of the passing nodes'
-work — which, on a large weights-skewed build, may be significant. Mitigate by
-keeping weights up to date (see
-[Self-updating weights](self-updating-weights.md)), so the balance is good and
-the duplicated work is minimal.
+Rerunning the full job is unambiguous: every module runs exactly once in one
+coordinated batch. The cost is repeating the passing nodes' work, which matters
+on a large weights-skewed build. Keep the weights fresh (see
+[Self-updating weights](self-updating-weights.md)) and that repeated work stays
+small.
 
 **Pipeline recommendation:** Use the CI provider's native retry-at-job-level
 feature (GitLab CI `retry: 2`, GitHub Actions `jobs.<job_id>.strategy.fail-fast:
@@ -310,9 +304,9 @@ to confirm they agree:
 diff plans/node-1.txt plans/node-2.txt   # identical if deterministic
 ```
 
-A module listed on line `N` for two different values of `N` means different
-nodes derived different plans — investigate divergent inputs (see
+A module listed on line `N` for two different values of `N` means the nodes
+derived different plans; investigate divergent inputs (see
 [Step 2](#step-2--diagnose-ran-on-zero-nodes)).
 
-An idle node (zero modules assigned) still gets a line like `3=` — the node
-count is provable from the dump alone.
+An idle node with zero modules assigned still gets a line like `3=`, so the
+dump alone proves the node count.

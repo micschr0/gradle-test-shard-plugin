@@ -15,9 +15,9 @@ reads the same file.
 
 ## Goal
 
-Maintain a weights file whose content is identical across every node of a
-parallel run. When nodes read different weights, their plans diverge,
-and a module may be skipped on every node.
+Maintain one weights file whose content is identical on every node of a
+parallel run. When nodes read different weights, their plans diverge, and a
+module may be skipped everywhere.
 
 ## Prerequisites
 
@@ -119,9 +119,10 @@ jobs:
 
 ### Variant B — Every run feeds the next
 
-A prepare job snapshots the previous run's weights into an artifact (identical
-for all nodes); a collect job aggregates fresh timings for the next run. The
-process is automatic: a given commit no longer shards reproducibly.
+A prepare job snapshots the previous run's weights into one artifact that all
+nodes share; a collect job aggregates fresh timings for the next run. The
+refresh costs reproducibility: a given commit no longer shards the same way
+twice.
 
 ```mermaid
 flowchart LR

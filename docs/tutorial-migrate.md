@@ -1,12 +1,12 @@
 # Migrate from manual sharding to Shardwise
 
-Your Gradle build uses `parallel: 3` in GitLab CI plus a hand-maintained per-node test list — or no list at all, letting whichever node finishes first run everything. This creates three problems:
+Your Gradle build uses `parallel: 3` in GitLab CI plus a hand-maintained per-node test list, or no list at all. Either way, three problems follow:
 
 1. **Uneven load.** One node gets the 20-minute `:services:checkout` test suite; another gets `:common:*` modules that finish in 30 seconds. Wall time equals the slowest node.
-2. **Stale coverage.** When you add a new module and forget to update the test list, some nodes never run it. CI reports green for code that wasn't tested.
-3. **Non-reproducibility.** The same commit can shard differently across CI runs because nothing ties a module's assignment to its content.
+2. **Stale coverage.** Add a module, forget the test list, and no node runs it. CI reports green for untested code.
+3. **Non-reproducibility.** The same commit shards differently across runs, because nothing ties a module's assignment to its content.
 
-After this tutorial, your `parallel: 3` line stays; your hand-maintained test list goes. Shardwise uses Greedy-LPT bin-packing against a `test-weights.properties` file to balance the assignment deterministically. The tutorial ends with a coverage assertion proving no module is ever silently lost.
+After this tutorial your `parallel: 3` line stays and the hand-maintained test list goes. Shardwise balances the assignment deterministically with Greedy-LPT bin-packing against a `test-weights.properties` file. The last step asserts the coverage invariant, proving no module is silently lost.
 
 ## Contents
 
@@ -33,9 +33,9 @@ sample-gradle-build/
     └── shipping/           # 300s test suite
 ```
 
-Total test time serial: ~2167s. With 3 nodes balanced, the target is roughly ~750s per node instead of 2167s — about a third of the wall time.
+Serial test time is ~2167s. Balanced across 3 nodes, the target is roughly ~750s per node, about a third of the wall time.
 
-You don't need a project this size to follow along. Every step shows the command and the expected output so you can replicate the behaviour on your own build.
+You need no project this size to follow along. Every step shows the command and its expected output, so you can replicate the behaviour on your own build.
 
 ---
 
@@ -121,9 +121,9 @@ pluginManagement {
 
 ## Subgoal 3 — Generate the weights file
 
-Without a weights file, Shardwise has no way to balance. It uses `defaultWeight = 10` for everything, which gives you round-robin — exactly the problem you are trying to escape.
+Without a weights file, Shardwise cannot balance. It applies `defaultWeight = 10` to everything, which gives you round-robin, exactly the problem you are trying to escape.
 
-Your test artifacts (JUnit XML files) live in each module's `build/test-results/test/`. Aggregate them into one `test-weights.properties` file whose contents are identical on every CI node of a run.
+Your test artifacts (JUnit XML files) live in each module's `build/test-results/test/`. Aggregate them into one `test-weights.properties` file whose contents are identical on every node of a run.
 
 ### Worked example, partial scaffolding (one blank to fill)
 
@@ -204,7 +204,7 @@ Two causes:
 
 ## Subgoal 5 — Tear down the manual sharding
 
-Coverage is provably preserved and balance works. Delete the old code. Find every place you set `onlyIf` based on `$CI_NODE_INDEX`, and remove it.
+Coverage is provably preserved and balance works, so delete the old code. Find every place you set `onlyIf` from `$CI_NODE_INDEX`, and remove it.
 
 ### Worked example (delete)
 
@@ -232,9 +232,9 @@ The runner skips a task when ANY `onlyIf` returns false. Your old `onlyIf` and S
 
 ## Subgoal 6 — Keep the weights fresh (your turn)
 
-You now have a one-time weights file. It will drift as your build changes — modules get added, tests get rewritten, slow tests get faster. The migration is incomplete without a job that refreshes the weights on a schedule.
+You now have a one-time weights file. It drifts as your build changes: modules arrive, tests get rewritten, slow tests get faster. The migration stays incomplete until a scheduled job refreshes the weights.
 
-The example below keeps this tutorial self-contained. For the full reference — every transport option (committed file, artifact, cache), both refresh strategies, and the caveats — [Self-updating weights](self-updating-weights.md) is the canonical source.
+The example below keeps this tutorial self-contained. [Self-updating weights](self-updating-weights.md) is the canonical source for the full reference: every transport option (committed file, artifact, cache), both refresh strategies, and the caveats.
 
 ### Worked example — GitLab CI (full scaffolding)
 

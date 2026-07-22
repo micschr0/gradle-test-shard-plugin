@@ -1,6 +1,6 @@
 # How Shardwise works
 
-Shardwise distributes weighted test modules across N parallel CI nodes using Greedy-LPT (Longest Processing Time) bin-packing, producing a deterministic plan that keeps every module running on exactly one node. After reading this, you can predict which module lands where and why the planner errs toward running, never skipping, when in doubt.
+Shardwise distributes weighted test modules across N parallel CI nodes using Greedy-LPT (Longest Processing Time) bin-packing. The plan is deterministic, and every module runs on exactly one node. This page explains which module lands where, and why the planner errs toward running when in doubt.
 
 ## Contents
 
@@ -64,7 +64,7 @@ Everything else in the codebase serves these two properties.
 
 ### 1. Coverage beats balance
 
-A module must never be silently skipped on *every* node. The failure modes are ranked: duplicated test execution costs redundant CI runtime; a *lost* module makes CI report success for an untested, possibly failing module. Every default therefore errs toward running.
+A module must never be silently skipped on *every* node. Rank the failure modes: duplicated execution wastes CI runtime; a *lost* module makes CI report success for code nothing tested. Every default therefore errs toward running.
 
 Every `Test` task takes this decision path at execution time; every uncertain branch ends in *run*:
 
@@ -92,16 +92,16 @@ A module absent from the plan runs on all nodes. A task name without a plan runs
 
 Three rules govern what happens when the inputs are unusual or broken:
 
-- **CI_NODE_TOTAL ≤ 1 disables skipping entirely.** With only one target, every assigned module runs there — the plan still exists (it is deterministic and identical across imaginary peers), but no task evaluates to SKIPPED. This keeps local development and single-node CI identical to a multi-node run.
-- **Malformed weight entries are ignored.** A non-numeric weight entry causes the module to fall back to `defaultWeight`. Stale weights shift load balance but never lose a test from coverage.
-- **Invalid CI variables fail the build.** A `CI_NODE_INDEX` of 0, an invalid value, an out-of-range index, or a missing variable triggers a build failure instead of a silent guess: a mis-parsed index would skip one node's assigned modules on every node.
+- **CI_NODE_TOTAL ≤ 1 disables skipping entirely.** With one target, every assigned module runs there. The plan still exists, but no task evaluates to SKIPPED, so local development and single-node CI behave like a multi-node run.
+- **Malformed weight entries are ignored.** A non-numeric entry falls back to `defaultWeight`. Stale weights shift load balance; they never lose a test.
+- **Invalid CI variables fail the build.** A `CI_NODE_INDEX` of 0, a non-numeric value, an out-of-range index, or one variable set without the other fails the build instead of guessing: a mis-parsed index would skip one node's modules on every node.
 
 ### 2. All nodes derive the identical plan
 
 There is no coordinator. Each of the N parallel nodes independently computes the full plan and picks its own slice. The plan is correct only if every node produces the identical plan, which requires:
 
-- **Deterministic planning** — the LPT sort is total (weight desc, then path asc), so the plan is invariant under module discovery order. The unit test `plan is invariant under input permutation` verifies this with shuffled inputs.
-- **Identical inputs** — the weights file must be identical on all nodes of a run: committed to git or distributed as a single pipeline artifact. A CI cache read independently by each node is unsafe: caches may serve different states to different runners (see [self-updating-weights.md](self-updating-weights.md)).
+- **Deterministic planning** — the LPT sort is total (weight desc, then path asc), so module discovery order cannot change the plan. The unit test `plan is invariant under input permutation` verifies this with shuffled inputs.
+- **Identical inputs** — every node of a run must read the same weights file: commit it to git, or distribute it as a single pipeline artifact. A CI cache each node reads independently is unsafe, because caches may serve different states to different runners (see [self-updating-weights.md](self-updating-weights.md)).
 
 ## Architecture: pure core, thin glue
 
@@ -183,7 +183,7 @@ Skipping via `onlyIf` keeps the task in the graph with outcome `SKIPPED`:
 - Task dependencies stay intact — `check` still depends on `test` everywhere.
 - CI reports show the module was *deliberately* skipped on this node rather than silently absent.
 
-The trade-off: dependencies of a skipped test task (e.g. `testClasses`) may still run. That costs some compilation time on foreign nodes but keeps the mechanism free of graph rewiring.
+The trade-off: dependencies of a skipped test task (e.g. `testClasses`) may still run. That costs compilation time on foreign nodes, but keeps the mechanism free of graph rewiring.
 
 ## Observing the plan
 
@@ -196,7 +196,7 @@ The plugin has no report task; the assignment is visible through task outcomes:
 ## Scope and known limitations
 
 - **Module granularity.** Shardwise shards whole modules, not individual test classes. If one module dominates total test time, split the module (or shard its classes with a separate in-module tool); no bin-packing can help a single indivisible 30-minute job.
-- **Only `Test` tasks.** `taskNames` matches `org.gradle.api.tasks.testing.Test` tasks by name. Lifecycle tasks (`build`, `check`) are empty containers — skipping the container would not skip the work it depends on, so generalising to arbitrary task types needs validation first (planned for a later release).
+- **Only `Test` tasks.** `taskNames` matches `org.gradle.api.tasks.testing.Test` tasks by name. Lifecycle tasks (`build`, `check`) are empty containers: skipping the container would not skip the work it depends on, so arbitrary task types need validation first (planned for a later release).
 - **Composite builds.** `includeBuild` builds have their own `Gradle` instance; their test tasks are not seen by the plugin and simply run on every node (coverage is preserved, work is duplicated).
 - **Android.** Variant test tasks (`testDebugUnitTest`, …) are `Test` tasks and can be listed in `taskNames` explicitly; there is no variant-aware matching.
 - **Coverage tools (JaCoCo).** Sharding itself is unaffected — JaCoCo
