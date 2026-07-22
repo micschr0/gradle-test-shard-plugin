@@ -4,6 +4,12 @@ All notable changes to this project are documented here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Pre-1.0, the public
 API may change between minor versions; every break is listed under its release.
 
+## [Unreleased]
+
+### 🧪 Testing
+
+- Fail `check` on version drift between the root and the e2e consumer
+
 ## [0.4.0] — 2026-07-22
 
 **Breaking changes:** none.

@@ -144,9 +144,21 @@ jobs:
             image: gradle:8.14-jdk17
     name: "e2e ${{ matrix.id }}: ${{ matrix.name }}"
     steps:
+      # On a pull_request, actions/checkout defaults to the ephemeral
+      # refs/pull/N/merge commit, which glci cannot serve. Pin the real PR head
+      # commit; on push, head.sha is empty and this falls back to the default.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # glci serves the workspace as a `--bare --depth=1` clone, then runs its
+      # unshallow-to-orphan step — which fails on a detached HEAD and leaves the
+      # repo shallow, so the runner's checkout hits "fatal: unable to read tree".
+      # Pinning head.sha above detaches HEAD; re-attach it to a branch so
+      # `.git/HEAD` is symbolic and glci takes the same path a push does.
+      - name: Re-attach HEAD to a branch for glci
+        run: git checkout -B ci-e2e-head
 
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
