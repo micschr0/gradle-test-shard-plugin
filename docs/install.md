@@ -1,6 +1,6 @@
 # Installing Shardwise and sharding tests in CI
 
-Install the Shardwise Gradle plugin and configure your CI pipeline to run test modules in parallel across multiple CI nodes, with every module running on exactly one node and no silent gaps.
+Install the Shardwise Gradle plugin and configure your CI pipeline to run test modules across parallel nodes, each module on exactly one node, with no silent gaps.
 
 - [Prerequisites](#prerequisites)
 - [Step 1 — Apply the plugin](#step-1--apply-the-plugin)
@@ -25,7 +25,7 @@ Add the plugin to the root project's `build.gradle.kts`:
 ```kotlin
 // build.gradle.kts (root project only)
 plugins {
-    id("de.micschro.shardwise") version "0.3.0"
+    id("de.micschro.shardwise") version "0.4.1"
 }
 ```
 
@@ -48,14 +48,15 @@ shardwise {
 }
 ```
 
-The plugin reads `CI_NODE_INDEX` and `CI_NODE_TOTAL` (1-based) from the environment. With both unset (local runs), nothing is skipped. When either is set, both must be valid — a non-numeric value or an out-of-range index fails the build immediately. Test tasks not listed in `taskNames` are never skipped, and the root project's own test tasks are sharded like any module (weights key: `.`).
+The plugin reads `CI_NODE_INDEX` and `CI_NODE_TOTAL` (1-based) from the environment. With both unset (local runs), nothing is skipped. When either is set, both must be valid: a non-numeric value or an out-of-range index fails the build immediately. Test tasks outside `taskNames` are never skipped, and the root project's own test tasks shard like any module (weights key: `.`).
 
 ## Step 3 — Wire your CI provider
 
-Every provider maps its own parallelism variables to `CI_NODE_INDEX` and `CI_NODE_TOTAL`. GitLab CI sets both automatically; other providers require explicit mapping (0- vs 1-based indices).
+Every provider maps its own parallelism variables to `CI_NODE_INDEX` and `CI_NODE_TOTAL`. GitLab CI sets both automatically; other providers need an explicit mapping.
 
-Find your provider, then jump to its section for a copy-paste config block. The
-plugin always wants a **1-based** index — where the native index is 0-based, add 1.
+Find your provider below, then jump to its section for a copy-paste config
+block. The plugin always wants a **1-based** index; where the native index is
+0-based, add 1.
 
 | Provider | Native index → `CI_NODE_INDEX` | Native total → `CI_NODE_TOTAL` |
 |----------|-------------------------------|-------------------------------|
@@ -221,7 +222,7 @@ Run tests on a CI shard or simulate one locally:
 CI_NODE_INDEX=2 CI_NODE_TOTAL=3 ./gradlew test --info
 ```
 
-Look for the `onlyIf` skip line. The plugin attaches `onlyIf("Shardwise node ${n}/${t}")` to each sharded task, so a task on the wrong shard prints a line whose reason is `Shardwise node N/M` (the actual node and total). Test tasks on the right shard run and print no suffix on success (`> Task :foo:test`); only `SKIPPED`, `UP-TO-DATE`, `FROM-CACHE`, `NO-SOURCE`, or `FAILED` are standard task outcomes.
+Look for the `onlyIf` skip line. The plugin attaches `onlyIf("Shardwise node ${n}/${t}")` to each sharded task, so a task on the wrong shard prints the reason `Shardwise node N/M` (the actual node and total). A task on the right shard runs and prints no suffix on success (`> Task :foo:test`); the standard outcomes are `SKIPPED`, `UP-TO-DATE`, `FROM-CACHE`, `NO-SOURCE`, and `FAILED`.
 
 To assert in a script, capture task names per shard and verify the three lists cover the full module set:
 
@@ -243,9 +244,9 @@ Every shard must skip some modules and run others. No module should be skipped o
 
 ## Disabling and uninstalling
 
-- **Disable temporarily.** Leave `CI_NODE_INDEX` and `CI_NODE_TOTAL` unset (or set `CI_NODE_TOTAL=1`). With no sharding variables, the plugin is a no-op — every test task runs normally. This is also why local builds are never sharded.
-- **Uninstall.** Remove the `id("de.micschro.shardwise")` line from the root `plugins {}` block and delete the `shardwise {}` extension block. No other build files reference the plugin; module builds are untouched.
+- **Disable temporarily.** Leave `CI_NODE_INDEX` and `CI_NODE_TOTAL` unset, or set `CI_NODE_TOTAL=1`. Without the sharding variables the plugin is a no-op and every test task runs, which is also why local builds never shard.
+- **Uninstall.** Remove the `id("de.micschro.shardwise")` line from the root `plugins {}` block and delete the `shardwise {}` extension block. No other build files reference the plugin; module builds stay untouched.
 
 ## Upgrading
 
-Shardwise is pre-1.0 and does not promise SemVer compatibility. Before bumping the version, read the [CHANGELOG](../CHANGELOG.md) — it is the authoritative record of breaking changes.
+Shardwise is pre-1.0 and does not promise SemVer compatibility. Before bumping the version, read the [CHANGELOG](../CHANGELOG.md), the authoritative record of breaking changes.

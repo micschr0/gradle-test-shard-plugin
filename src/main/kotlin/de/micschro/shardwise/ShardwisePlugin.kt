@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 package de.micschro.shardwise
 
 import de.micschro.shardwise.internal.AnalyzeWeights

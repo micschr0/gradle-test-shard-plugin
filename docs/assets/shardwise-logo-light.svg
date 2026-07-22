@@ -1,0 +1,41 @@
+<svg width="620" height="200" viewBox="0 0 620 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Shardwise — balance Gradle test shards by runtime">
+  <defs>
+    <linearGradient id="g4a" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#0E7A74"/>
+      <stop offset="1" stop-color="#1BA39C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- BEFORE: three uneven bars, one towering (the slow node) -->
+  <g transform="translate(24,40)">
+    <text x="0" y="-8" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#8A9BA3">BEFORE</text>
+    <rect x="0"  y="118" width="86" height="3" rx="1.5" fill="#437291"/>
+    <rect x="4"  y="18"  width="22" height="100" rx="4" fill="#02303A"/>
+    <rect x="32" y="74"  width="22" height="44"  rx="4" fill="#02303A"/>
+    <rect x="60" y="92"  width="22" height="26"  rx="4" fill="#02303A"/>
+    <rect x="32" y="18"  width="22" height="52"  rx="4" fill="#02303A" opacity="0.12"/>
+    <rect x="60" y="18"  width="22" height="70"  rx="4" fill="#02303A" opacity="0.12"/>
+  </g>
+
+  <!-- transform arrow -->
+  <g transform="translate(124,96)">
+    <path d="M0 0 H44" stroke="#1BA39C" stroke-width="4" stroke-linecap="round"/>
+    <path d="M36 -8 L48 0 L36 8" fill="none" stroke="#1BA39C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- AFTER: three level bars, all equal (packed by runtime) -->
+  <g transform="translate(196,40)">
+    <text x="0" y="-8" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#1BA39C">SHARDWISE</text>
+    <rect x="0"  y="118" width="86" height="3" rx="1.5" fill="#437291"/>
+    <rect x="4"  y="54"  width="22" height="64" rx="4" fill="url(#g4a)"/>
+    <rect x="32" y="54"  width="22" height="64" rx="4" fill="url(#g4a)"/>
+    <rect x="60" y="54"  width="22" height="64" rx="4" fill="url(#g4a)"/>
+    <rect x="0" y="50" width="86" height="3" rx="1.5" fill="#1BA39C"/>
+  </g>
+
+  <!-- wordmark (dark ink for light backgrounds) -->
+  <g transform="translate(316,0)">
+    <text x="0" y="104" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="52" font-weight="800" letter-spacing="-1" fill="#0F1B20">Shard<tspan fill="#1BA39C">wise</tspan></text>
+    <text x="2" y="132" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="500" letter-spacing="0.4" fill="#5B7079">Balance Gradle test shards by runtime</text>
+  </g>
+</svg>
