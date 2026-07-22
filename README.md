@@ -195,6 +195,6 @@ Read-only: the task inspects weights and never runs a test.
 
 ## Contributing
 
-[CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md) · single maintainer.
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md)
 
 **License:** [Apache-2.0](LICENSE)
