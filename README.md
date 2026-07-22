@@ -2,8 +2,8 @@
 
 # Shardwise
 
-**Your CI has 3 nodes. One finishes in 40s and waits 4 minutes for the slow one.**
-**Shardwise packs test modules by measured runtime, so they all finish together.**
+**A Gradle plugin that packs your CI test modules by measured runtime, so every node finishes together.**
+Your CI has 3 nodes? Today one finishes in 40s and waits 4 minutes for the slow one. Shardwise fixes that.
 
 [![CI](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/gradle-plugin-portal/v/de.micschro.shardwise?label=version&color=blue)](https://plugins.gradle.org/plugin/de.micschro.shardwise)
@@ -34,6 +34,53 @@ Four modules per node looks fair. It isn't — one module can outweigh five.
 
 ---
 
+## Why not just split by module count?
+
+|  | Count-based | **Shardwise** |
+|---|---|---|
+| Balances by | how *many* modules | how *long* they take |
+| Slow node | drags the whole build | packed first, LPT |
+| Needs a SaaS account | — | **no** |
+| Uploads your build data | — | **no** |
+| Coordinator between nodes | sometimes | **no** — deterministic |
+| Cost | your CI bill | **free, Apache-2.0** |
+| Backing out | rewrite the split | **delete one line** |
+
+---
+
+## Add it in three commands
+
+```kotlin
+// root build.gradle.kts
+plugins {
+  id("de.micschro.shardwise") version "0.4.0"
+}
+```
+
+```bash
+./gradlew test --no-build-cache     # 1. run the suite once
+./gradlew generateTestWeights       # 2. aggregate timings → test-weights.properties (commit it)
+
+CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test   # 3. that's sharding. done.
+```
+
+Then set the same two env vars per CI job. That's the whole integration.
+
+```text
+        CI_NODE_INDEX / CI_NODE_TOTAL          your CI already has these
+                     │
+                     ▼
+ test-weights.properties ──► Greedy-LPT planner ──► node 1: :checkout :domain
+      (committed)              (deterministic)      node 2: :reporting
+                                                    node 3: :web :api :core
+```
+
+Every node computes the *same* plan from the same inputs — no lock, no shared state.
+
+<sub>Requires Gradle 8.11+, Java 17+, a multi-module build. Applied to the root project — module builds untouched.</sub>
+
+---
+
 ## What it looks like on a node
 
 Every sharded node prints its own plan at build start:
@@ -59,53 +106,6 @@ No guessing which node ran what. It's in the log.
 
 ---
 
-## 60-second start
-
-```kotlin
-// root build.gradle.kts
-plugins {
-  id("de.micschro.shardwise") version "0.3.0"
-}
-```
-
-```bash
-./gradlew test --no-build-cache     # 1. run the suite once
-./gradlew generateTestWeights       # 2. aggregate timings → test-weights.properties (commit it)
-
-CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test   # 3. that's sharding. done.
-```
-
-Then set the same two env vars per CI job. That's the whole integration.
-
-```text
-        CI_NODE_INDEX / CI_NODE_TOTAL          your CI already has these
-                     │
-                     ▼
- test-weights.properties ──► Greedy-LPT planner ──► node 1: :checkout :domain
-      (committed)              (deterministic)      node 2: :reporting
-                                                    node 3: :web :api :core
-```
-
-Every node computes the *same* plan from the same inputs. No coordinator, no lock, no shared state.
-
-<sub>Requires Gradle 8.11+, Java 17+, a multi-module build. Applied to the root project — module builds untouched.</sub>
-
----
-
-## Why not just split by module count?
-
-|  | Count-based | **Shardwise** |
-|---|---|---|
-| Balances by | how *many* modules | how *long* they take |
-| Slow node | drags the whole build | packed first, LPT |
-| Needs a SaaS account | — | **no** |
-| Uploads your build data | — | **no** |
-| Coordinator between nodes | sometimes | **no** — deterministic |
-| Cost | your CI bill | **free, Apache-2.0** |
-| Backing out | rewrite the split | **delete one line** |
-
----
-
 ## The guarantee that matters
 
 > The worst outcome for a sharding tool isn't a slow build.
@@ -122,7 +122,7 @@ Every default errs toward *running*:
 
 Plus: every module lands on **exactly one** node, no duplication. No `afterEvaluate`, no eager task realization — configuration-cache safe. No network calls, no telemetry.
 
-<sub>One thing the build can't check: weights must come from a trusted source — committed, or produced in the same pipeline. See [Divergent weights](docs/troubleshooting.md#divergent-weights).</sub>
+<sub>Your only job: keep the weights file trustworthy — committed, or produced in the same pipeline. Everything else the plugin guarantees. See [Divergent weights](docs/troubleshooting.md#divergent-weights).</sub>
 
 ---
 
@@ -143,7 +143,7 @@ A module never splits, so your heaviest one is a hard floor on wall time:
                                              └─ :reporting alone = 1840ms
 ```
 
-Three nodes is this build's sweet spot. A fourth costs money and saves nothing — split `:reporting` to go lower.
+**Rule of thumb: your heaviest module sets the floor.** Nodes past that point cost money and save nothing — split the heavy module to go lower.
 
 ---
 

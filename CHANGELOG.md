@@ -6,6 +6,11 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
+### 📚 Documentation
+
+- Restructure README ordering; sharpen hero and captions
+- Fix stale install-snippet version (`0.3.0` → `0.4.0`)
+
 ### 🔒 Security
 
 - Publish SLSA build provenance attestations for release jars
