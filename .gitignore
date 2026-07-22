@@ -13,3 +13,5 @@ e2e/build/
 .codegraph/
 # Property-test run database (jqwik); local-only, regen on test failure
 .jqwik-database
+# Internal SDD/decision notes — kept locally, not published
+docs/internals/
