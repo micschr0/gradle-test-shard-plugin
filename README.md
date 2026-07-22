@@ -25,11 +25,12 @@
 
 Modules packed by measured test runtime, not count. Same suite, same coverage.
 
-<sub>Illustrative. [How many nodes →](#how-many-nodes)</sub>
-
 ---
 
 ## Get started
+
+Record weights once locally. Then set two env vars per CI job.
+No coordinator. Every node derives the same plan.
 
 ```kotlin
 // root build.gradle.kts
@@ -39,18 +40,22 @@ plugins {
 ```
 
 ```bash
-./gradlew test --no-build-cache                   # real timings, not cached
-./gradlew generateTestWeights                     # writes test-weights.properties
-git add test-weights.properties && git commit     # commit it — nodes need identical input
+# once, locally — measure real per-module timings
+./gradlew test --no-build-cache
+./gradlew generateTestWeights                  # writes test-weights.properties
+git add test-weights.properties                # commit — every node needs identical input
+```
 
-CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test    # sharded
+```bash
+# per CI job — the only thing CI sets
+CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test
 ```
 
 > [!WARNING]
 > `CI_NODE_INDEX` is **1-based**. On 0-based CI (GitHub Actions matrix,
 > CircleCI), add 1. Unset locally = every test runs.
 
-Set the two env vars per CI job. No coordinator. Every node derives the same plan.
+<sub>Keep weights fresh from CI instead? See [self-updating weights](docs/self-updating-weights.md).</sub>
 
 ```text
 config-cache safe   ·   no SaaS · no network · no telemetry   ·   remove 1 line to revert
