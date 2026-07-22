@@ -53,7 +53,7 @@ Four modules per node looks fair. It isn't — one module can outweigh five.
 ```kotlin
 // root build.gradle.kts
 plugins {
-  id("de.micschro.shardwise") version "0.4.0"
+  id("de.micschro.shardwise") version "0.4.1"
 }
 ```
 

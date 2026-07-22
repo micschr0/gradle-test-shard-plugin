@@ -6,10 +6,14 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-07-22
+
+**Breaking changes:** none.
+
 ### 📚 Documentation
 
 - Restructure README ordering; sharpen hero and captions
-- Fix stale install-snippet version (`0.3.0` → `0.4.0`)
+- Fix stale install-snippet version (`0.3.0` → `0.4.1`)
 
 ### 🔒 Security
 
