@@ -173,3 +173,5 @@ Bug fixes and improvements welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) fo
 Maintained by a single author: [SUPPORT.md](SUPPORT.md) for expectations, [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 **License:** [Apache-2.0](LICENSE)
+
+<!-- ci: doc-skip verification round 2 -->
