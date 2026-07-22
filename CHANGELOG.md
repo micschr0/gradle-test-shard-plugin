@@ -14,9 +14,9 @@ API may change between minor versions; every break is listed under its release.
 
 - Redesign README: teal palette, cohesive badge row, themed mermaid, GitHub
   alert callouts, mobile-safe charts
-- Reframe value story around efficiency and faster CI/CD; drop the cost framing
+- Add a theme-adaptive before/after logo (`docs/assets/shardwise-logo-*.svg`)
+- Rewrite the sharding section chart-first for single-node readers; trim prose
 - Move the coverage guarantee to `how-it-works.md`; link it from the README
-- Point single-module builds at `maxParallelForks`
 - Fix stale install-snippet version (`0.3.0` → `0.4.1`)
 
 ### 🔒 Security

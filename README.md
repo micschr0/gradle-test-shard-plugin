@@ -1,10 +1,11 @@
 <div align="center">
 
-[![Shardwise](https://img.shields.io/badge/⚡_SHARDWISE-02303A?style=for-the-badge&labelColor=02303A&color=1BA39C)](https://plugins.gradle.org/plugin/de.micschro.shardwise)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/shardwise-logo-dark.svg">
+  <img alt="Shardwise — balance Gradle test shards by runtime" src="docs/assets/shardwise-logo-light.svg" width="480">
+</picture>
 
 # Shardwise
-
-**Balance Gradle test shards by measured runtime, not module count.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/micschr0/gradle-test-shard-plugin/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI&labelColor=02303A&color=1BA39C)](https://github.com/micschr0/gradle-test-shard-plugin/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/micschr0/gradle-test-shard-plugin?style=flat-square&logo=gradle&logoColor=white&label=version&labelColor=02303A&color=1BA39C&sort=semver)](https://github.com/micschr0/gradle-test-shard-plugin/releases)
@@ -17,29 +18,19 @@
 
 ---
 
-## Why runtime, not module count
-
-One node running everything, or N nodes split by hand — both leave time on the table.
+## Runtime-balanced sharding
 
 ```text
-BY MODULE COUNT — wall 2440ms
-  node 1  ████████████████████ 2440
-  node 2  ████████████░░░░░░░░ 1430
-  node 3  ████████░░░░░░░░░░░░  940
-
-BY MEASURED WEIGHT — wall 1840ms
-  node 1  ███████████████░░░░░ 1840
-  node 2  ████████████░░░░░░░░ 1490
-  node 3  ████████████░░░░░░░░ 1480
+              node 1        node 2        node 3     wall time
+1 node        ████████████████████████                 4810 ms
+3 · by count  ████████████  ████████      ████          2440 ms  ← slowest node wins
+3 · by time   ██████████    █████████     █████████     1840 ms  ← packed by runtime
 ```
 
-`█` testing · `░` idle. One module can outweigh five. **25% faster wall time.**
+Modules packed by measured test runtime, not count. Every module runs on exactly
+one node — same suite, same coverage.
 
-> [!TIP]
-> Multi-module builds only. A single module doesn't shard —
-> use Gradle's `maxParallelForks` instead.
-
-<sub>Illustrative. On one node today? [How many nodes](#how-many-nodes) shows the speedup.</sub>
+<sub>Illustrative. [How many nodes →](#how-many-nodes)</sub>
 
 ---
 
@@ -64,6 +55,18 @@ CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test    # sharded
 > `CI_NODE_INDEX` is **1-based**. On 0-based CI (GitHub Actions matrix,
 > CircleCI), add 1. Unset locally = every test runs.
 
+Set the two env vars per CI job — no coordinator, every node derives the same plan.
+
+```text
+config-cache safe   ·   no SaaS · no network · no telemetry   ·   remove 1 line to revert
+```
+
+Every module runs on exactly one node, never zero
+([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
+
+<details>
+<summary>How the plan is built</summary>
+
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','lineColor':'#437291','primaryColor':'#02303A','primaryTextColor':'#ffffff','primaryBorderColor':'#1BA39C'}}}%%
 flowchart LR
@@ -82,11 +85,7 @@ flowchart LR
   class N1,N2,N3 node;
 ```
 
-Same inputs, same plan on every node. No coordinator. Set the two env vars per CI job.
-
-Config-cache safe. No SaaS, no network, no telemetry. Back out by deleting one line.
-Every module runs on exactly one node — never zero, so CI can't go green on untested
-code ([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
+</details>
 
 <sub>Provider snippets → [install.md](docs/install.md).</sub>
 
@@ -98,22 +97,21 @@ code ([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
 ./gradlew shardwiseAnalyze
 ```
 
-All on one node → add nodes, wall time drops. Heaviest module is the floor.
-
 ```text
-  1 node   ████████████████████████  4810ms
-  2 nodes  ████████████             2405ms
-  3 nodes  █████████                1840ms  ◄ floor
-  6 nodes  █████████                1840ms  ◄ no gain
+  1 node   ████████████████████████  4810 ms
+  2 nodes  ████████████             2405 ms
+  3 nodes  █████████                1840 ms  ◄ floor
+  6 nodes  █████████                1840 ms  ◄ no gain
 ```
 
-`◄ floor` = heaviest module (`:reporting`). Past it, nodes idle — split it to go lower.
+Floor = heaviest module (`:reporting`). Past it, extra nodes idle. Split it to go lower.
 
 ---
 
-## Per-node output
+<details>
+<summary><b>What a sharded node prints</b></summary>
 
-Every sharded node prints its own plan at build start:
+<br/>
 
 ```text
 ── SHARDWISE · test ──────────────
@@ -127,6 +125,8 @@ Every sharded node prints its own plan at build start:
 
 ──────────────────────────────────
 ```
+
+</details>
 
 ---
 
