@@ -66,6 +66,18 @@ plugins {
 git add test-weights.properties     # commit: every node needs identical input
 ```
 
+The generated file is one line per module, milliseconds, keyed by Gradle path
+with `/` instead of `:` (a `.properties` key cannot contain `:`):
+
+```properties
+reporting=1840
+web=900
+services/checkout=600
+```
+
+Nested modules use their full Gradle path: `:services:checkout` is keyed
+`services/checkout`, and the root project is keyed `.`.
+
 ```bash
 # per CI job, the only thing CI sets
 CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test
@@ -91,9 +103,9 @@ Per-provider CI snippets live in [install.md](docs/install.md).</sub>
 flowchart LR
   W["test-weights.properties"] --> P["Greedy-LPT<br/>planner"]
   E["CI_NODE_INDEX<br/>CI_NODE_TOTAL"] --> P
-  P --> N1["node 1 · :checkout :domain"]
-  P --> N2["node 2 · :reporting"]
-  P --> N3["node 3 · :web :api :core"]
+  P --> N1["node 1 · :reporting"]
+  P --> N2["node 2 · :web :domain :core"]
+  P --> N3["node 3 · :api :services:checkout"]
 
   classDef input fill:#02303A,stroke:#437291,stroke-width:1px,color:#ffffff;
   classDef hero  fill:#1BA39C,stroke:#02303A,stroke-width:2px,color:#02303A,font-weight:bold;
@@ -151,7 +163,7 @@ Each task name gets its own independent plan. Full reference —
 [shardwise]   1. :reporting 1840ms (38.3%)
 [shardwise]   2. :web 900ms (18.7%)
 [shardwise]   3. :api 780ms (16.2%)
-[shardwise]   4. :checkout 600ms (12.5%)
+[shardwise]   4. :services/checkout 600ms (12.5%)
 [shardwise]   5. :domain 400ms (8.3%)
 [shardwise]   6. :core 290ms (6.0%)
 ```
