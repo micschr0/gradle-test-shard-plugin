@@ -71,6 +71,21 @@ jobs:
           # publishToMavenLocal runs do not need an OIDC provider).
           SIGSTORE_SIGN: "true"
 
+      # Hand the signed artifacts to the release-notes job so it can attach
+      # them to the GitHub Release (OpenSSF Scorecard Signed-Releases check).
+      # sigstore-gradle 2.2.0 writes a `.sigstore.json` bundle next to each
+      # signed file under build/libs. if-no-files-found: error surfaces a
+      # broken signing step instead of silently shipping an unsigned release.
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-artifacts
+          path: |
+            build/libs/*.jar
+            build/libs/*.sigstore.json
+          if-no-files-found: error
+          retention-days: 7
+
   # Runs only after the portal publish succeeds, so a failed publish never
   # leaves a GitHub Release advertising a version that is not downloadable.
   release-notes:
@@ -84,6 +99,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Download signed artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-artifacts
+          path: artifacts
 
       # Extracts the section for this tag from CHANGELOG.md: everything after
       # the matching `## [x.y.z]` heading up to the next `## [` heading.
@@ -111,8 +132,13 @@ jobs:
             echo '```'
           } >> notes.md
 
+      # Attaches the signed jars and their .sigstore.json bundles so the
+      # release is independently verifiable (OpenSSF Signed-Releases).
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ github.ref_name }}
-        run: gh release create "$VERSION" --title "$VERSION" --notes-file notes.md --verify-tag
+        run: |
+          gh release create "$VERSION" --title "$VERSION" \
+            --notes-file notes.md --verify-tag \
+            artifacts/*.jar artifacts/*.sigstore.json

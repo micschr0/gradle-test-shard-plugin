@@ -6,6 +6,10 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
+### 🔧 CI
+
+- Attach signed jars and their Sigstore bundles to each GitHub Release
+
 ### 🧪 Testing
 
 - Fail `check` on version drift between the root and the e2e consumer
