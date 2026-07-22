@@ -50,7 +50,8 @@ Configuration-cache safe. Delete the plugin line and the old behaviour returns.
 ## Get started
 
 Record weights once locally, then set two environment variables per CI job.
-There is no coordinator — every node derives the same plan from the same file.
+No coordinator runs anywhere: every node derives the same plan from the same
+file.
 
 ```kotlin
 // root build.gradle.kts
@@ -66,8 +67,8 @@ plugins {
 git add test-weights.properties     # commit: every node needs identical input
 ```
 
-The generated file is one line per module, milliseconds, keyed by Gradle path
-with `/` instead of `:` (a `.properties` key cannot contain `:`):
+Each line holds one module and its milliseconds. The key is the Gradle path with
+`/` instead of `:`, because a `.properties` key cannot contain a colon:
 
 ```properties
 reporting=1840
@@ -75,8 +76,8 @@ web=900
 services/checkout=600
 ```
 
-Nested modules use their full Gradle path: `:services:checkout` is keyed
-`services/checkout`, and the root project is keyed `.`.
+Nested modules keep their full path, so `:services:checkout` becomes
+`services/checkout`. The root project is `.`.
 
 ```bash
 # per CI job, the only thing CI sets
@@ -88,11 +89,11 @@ CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test
 > hand you a 0-based index, so add 1 there. A `0` fails the build instead of
 > quietly running the wrong shard.
 
-Set neither variable and nothing is skipped — that is why local builds run the
+Set neither variable and nothing is skipped, which is why local builds run the
 full suite.
 
-No test can fall through the cracks: when the plugin is unsure about a module,
-an unknown task name, or an outdated weights file, it runs the tests
+Whenever the plugin is unsure — a module it has never seen, a task name it does
+not know, a weights file gone stale — it runs the tests
 ([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
 
 <sub>Prefer weights refreshed from CI? See [self-updating weights](docs/self-updating-weights.md).
