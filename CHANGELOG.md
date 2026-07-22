@@ -23,6 +23,13 @@ API may change between minor versions; every break is listed under its release.
 - Move the coverage guarantee to `how-it-works.md`; link it from the README
 - Fix stale install-snippet version (`0.3.0` → `0.4.1`) in `install.md` and
   `tutorial-migrate.md`
+- Tighten prose across the README and all `docs/` pages
+- Correct `how-it-works.md`: only one CI variable set without the other fails
+  the build; both unset stays a no-op
+
+### ⚙️ Miscellaneous Tasks
+
+- Drop per-file SPDX headers; the root `LICENSE` remains authoritative
 
 ### 🔒 Security
 

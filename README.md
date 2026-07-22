@@ -16,10 +16,10 @@
 
 ---
 
-Splitting a Gradle test suite across CI nodes by module count leaves nodes
-idle: one node draws the slow modules, the rest finish early and wait. Shardwise
-packs modules by their **measured** runtime instead, so every node finishes at
-roughly the same time.
+Splitting a Gradle test suite across CI nodes by module count leaves nodes idle:
+one node draws the slow modules, the rest finish early and wait. Shardwise packs
+modules by their **measured** runtime, so every node finishes at roughly the
+same time.
 
 ```text
                 node 1        node 2        node 3      wall time
@@ -43,7 +43,7 @@ Shardwise pays off when all three hold:
   already optimal and you need no plugin.
 
 Nothing runs off your machine: no SaaS, no network calls, no telemetry.
-Configuration-cache safe. Removing the plugin line restores the old behaviour.
+Configuration-cache safe. Delete the plugin line and the old behaviour returns.
 
 ---
 
@@ -88,8 +88,8 @@ CI_NODE_TOTAL=3 CI_NODE_INDEX=1 ./gradlew test
 > CircleCI), add 1. With both variables unset, the plugin is a no-op and every
 > test runs.
 
-Every module lands on exactly one node, never zero — unknown modules, unknown
-task names and stale weights all default to *running*
+Every module lands on exactly one node, never zero. Unknown modules, unknown
+task names, and stale weights all default to *running*
 ([coverage beats balance](docs/how-it-works.md#1-coverage-beats-balance)).
 
 <sub>Prefer weights refreshed from CI? See [self-updating weights](docs/self-updating-weights.md).
@@ -117,8 +117,8 @@ flowchart LR
 ```
 
 Longest-processing-time-first: sort modules by weight descending, put each on
-the node with the least load so far. Deterministic — identical inputs produce
-identical plans on every node, with no cross-node communication.
+the node with the least load so far. Identical inputs produce identical plans on
+every node, with no cross-node communication.
 
 </details>
 
@@ -137,9 +137,9 @@ shardwise {
 }
 ```
 
-Each task name gets its own independent plan. Full reference —
-`weightsFile`, `planDetail`, plan-only mode, weights file format — in
-[configuration.md](docs/configuration.md).
+Each task name gets its own independent plan.
+[configuration.md](docs/configuration.md) is the full reference: `weightsFile`,
+`planDetail`, plan-only mode, and the weights file format.
 
 ---
 
@@ -168,13 +168,13 @@ Each task name gets its own independent plan. Full reference —
 [shardwise]   6. :core 290ms (6.0%)
 ```
 
-Your heaviest module is the wall-time floor: no node can finish before
-`:reporting` does, no matter how many nodes you add. `imbalance` is that
-floor divided by the mean — at `2.30x`, the heaviest module takes more than
-twice the average, so nodes past the third mostly idle. To go faster, split the
-heaviest module rather than adding nodes.
+Your heaviest module sets the wall-time floor: no node finishes before
+`:reporting` does, however many nodes you add. `imbalance` is that floor divided
+by the mean. At `2.30x` the heaviest module takes more than twice the average,
+so nodes past the third mostly idle. To go faster, split the heaviest module
+instead of adding nodes.
 
-Read-only: the task inspects weights and never runs a test.
+The task only inspects weights. It never runs a test.
 
 ---
 
