@@ -11,9 +11,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Cache ON: `./gradlew check` is local-build-style verification and benefits
-  # from cache hits (5min → 1min on cold runs). Per user policy, only weight-
-  # computing jobs disable cache; `check` is not one of them.
+  # Cache OFF, same reason as `publish` below: this job's `check` is the last
+  # gate before an effectively permanent portal artifact, and a poisoned cache
+  # entry could make it pass on code that never really built. Cold runs cost
+  # ~4 extra minutes — cheap against a release no one can retract.
   check:
     name: Verify
     runs-on: ubuntu-latest
