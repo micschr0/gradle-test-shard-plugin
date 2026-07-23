@@ -24,6 +24,27 @@
   },
   "packageRules": [
     {
+      "description": "gradle-api patches stay on the 8.11 binary-compat floor; block minor/major, and never automerge a compile-floor bump",
+      "matchPackageNames": ["dev.gradleplugins:gradle-api"],
+      "matchUpdateTypes": ["minor", "major"],
+      "enabled": false
+    },
+    {
+      "matchPackageNames": ["dev.gradleplugins:gradle-api"],
+      "automerge": false
+    },
+    {
+      "description": "Own plugin is not on the Portal — skip lookup",
+      "matchPackageNames": ["de.micschro.shardwise{/,}**"],
+      "enabled": false
+    },
+    {
+      "description": "e2e uses the min-supported Gradle image on purpose",
+      "matchManagers": ["gitlabci"],
+      "matchPackageNames": ["gradle"],
+      "enabled": false
+    },
+    {
       "description": "Group Kotlin ecosystem",
       "matchPackageNames": ["/^org\\.jetbrains\\.kotlin/"],
       "groupName": "Kotlin"

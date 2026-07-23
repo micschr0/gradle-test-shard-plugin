@@ -34,7 +34,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("dev.gradleplugins:gradle-api:8.11")
+    compileOnly(libs.gradle.api)
     // Only for ProjectBuilder tests; does not leak downstream (test configurations are not published).
     testImplementation(gradleApi())
     testImplementation(platform(libs.junit.bom))
