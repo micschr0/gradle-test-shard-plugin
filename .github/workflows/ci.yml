@@ -64,7 +64,15 @@ jobs:
     name: Check
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    # Self-hosted, except for pull requests from a fork. A self-hosted runner
+    # survives the job, so untrusted code from a fork must never run on it —
+    # those runs stay on the ephemeral GitHub-hosted VM. On push and on a
+    # same-repo PR the expression falls through to the self-hosted labels.
+    #
+    # `e2e-glci` deliberately stays GitHub-hosted: it needs Docker on the host,
+    # an arm64 glci build, and arm64 gitlab-runner images. Move it only once
+    # this job has proven the runner works.
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted", "Linux", "ARM64"]') }}
     permissions:
       contents: read
     timeout-minutes: 10
