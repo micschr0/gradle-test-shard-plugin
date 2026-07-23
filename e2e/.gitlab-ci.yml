@@ -20,7 +20,7 @@ variables:
   SHARDWISE_E2E_NODE_TOTAL: "3"
 
 default:
-  image: gradle:8.11-jdk17
+  image: gradle:8.11-jdk17@sha256:91d559b8d55f522de5bc6882f73bcedc4e2cc7b0a58e839a9fa0ed95811a988d
   before_script:
     # Point mavenLocal into the project tree so the plugin published in the build
     # stage is still visible to the consumer in the test stage. Setting
