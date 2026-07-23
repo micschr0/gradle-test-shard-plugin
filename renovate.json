@@ -24,6 +24,22 @@
   },
   "packageRules": [
     {
+      "description": "Pin gradle-api to the binary-compat floor — never bump",
+      "matchPackageNames": ["dev.gradleplugins:gradle-api"],
+      "enabled": false
+    },
+    {
+      "description": "Own plugin is not on the Portal — skip lookup",
+      "matchPackageNames": ["de.micschro.shardwise{/,}**"],
+      "enabled": false
+    },
+    {
+      "description": "e2e uses the min-supported Gradle image on purpose",
+      "matchManagers": ["gitlabci"],
+      "matchPackageNames": ["gradle"],
+      "enabled": false
+    },
+    {
       "description": "Group Kotlin ecosystem",
       "matchPackageNames": ["/^org\\.jetbrains\\.kotlin/"],
       "groupName": "Kotlin"
