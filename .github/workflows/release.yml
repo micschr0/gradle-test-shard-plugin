@@ -47,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           tag_version="${VERSION#v}"
-          build_version="$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts)"
+          build_version="$(sed -n 's/^version = "\([^"]*\)".*/\1/p' build.gradle.kts)"
           if [ "$tag_version" != "$build_version" ]; then
             echo "::error::tag $VERSION (version $tag_version) does not match build.gradle.kts version $build_version"
             exit 1
