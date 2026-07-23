@@ -126,8 +126,25 @@ tasks.validatePlugins {
 val sigstoreSigningEnabled =
     providers.environmentVariable("SIGSTORE_SIGN").orNull == "true"
 
+// The plugin defaults to `build/sigstore/<taskName>/`. The release workflow
+// collects jars and bundles from `build/libs`, so redirect the jar signatures
+// there. Only the pluginMaven task signs the jars; the marker publication signs
+// only a `pom-default.xml`, whose bundle name would collide with pluginMaven's
+// pom bundle in a shared directory — leave that one in its own default dir.
 tasks.withType<dev.sigstore.sign.tasks.SigstoreSignFilesTask>().configureEach {
     enabled = sigstoreSigningEnabled
+    if (name == "sigstoreSignPluginMavenPublication") {
+        signatureDirectory = layout.buildDirectory.dir("libs")
+    }
+}
+
+// `publishPlugins` uploads to the Portal without pulling in the publication's
+// signing tasks, so a release would ship unsigned bundles. Only wire them when
+// signing is on — local and e2e publishes have no OIDC provider.
+if (sigstoreSigningEnabled) {
+    tasks.named("publishPlugins") {
+        dependsOn(tasks.withType<dev.sigstore.sign.tasks.SigstoreSignFilesTask>())
+    }
 }
 
 detekt {

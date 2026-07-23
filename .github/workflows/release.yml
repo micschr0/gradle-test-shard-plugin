@@ -103,11 +103,24 @@ jobs:
         with:
           subject-path: build/libs/*.jar
 
+      # `if-no-files-found: error` only fires when the WHOLE path set is empty,
+      # so the jars alone satisfied it while every bundle was missing — that is
+      # how v0.4.0 and v0.4.1 shipped unsigned. Assert the pairing explicitly.
+      - name: Verify every jar has a Sigstore bundle
+        run: |
+          set -euo pipefail
+          missing=0
+          for jar in build/libs/*.jar; do
+            if [ ! -f "${jar}.sigstore.json" ]; then
+              echo "::error::no Sigstore bundle for ${jar}"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          echo "all jars carry a Sigstore bundle"
+
       # Hand the signed artifacts to the release-notes job so it can attach
       # them to the GitHub Release (OpenSSF Scorecard Signed-Releases check).
-      # sigstore-gradle 2.2.0 writes a `.sigstore.json` bundle next to each
-      # signed file under build/libs. if-no-files-found: error surfaces a
-      # broken signing step instead of silently shipping an unsigned release.
       - name: Upload signed artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

@@ -6,6 +6,12 @@ API may change between minor versions; every break is listed under its release.
 
 ## [Unreleased]
 
+### 🔧 CI
+
+- Sign release jars: wire the Sigstore tasks into `publishPlugins` and emit the
+  bundles into `build/libs`, then fail the release if any jar lacks a bundle
+  (v0.4.0 and v0.4.1 shipped unsigned)
+
 ## [0.4.1] — 2026-07-22
 
 **Breaking changes:** none.
