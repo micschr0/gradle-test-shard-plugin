@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "de.micschro"
-version = "0.4.2" // x-release-please-version
+version = "0.4.3" // x-release-please-version
 
 kotlin {
     explicitApi()

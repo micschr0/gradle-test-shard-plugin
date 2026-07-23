@@ -4,6 +4,26 @@ All notable changes to this project are documented here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Pre-1.0, the public
 API may change between minor versions; every break is listed under its release.
 
+## [0.4.3](https://github.com/micschr0/gradle-test-shard-plugin/compare/v0.4.2...v0.4.3) (2026-07-23)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update dependency net.jqwik:jqwik to v1.10.1 ([#25](https://github.com/micschr0/gradle-test-shard-plugin/issues/25)) ([54e1095](https://github.com/micschr0/gradle-test-shard-plugin/commit/54e1095c66ed422f93793f9b8774980bd7c6c4d7))
+* **deps:** update dependency org.junit.jupiter:junit-jupiter to v5.14.4 ([#26](https://github.com/micschr0/gradle-test-shard-plugin/issues/26)) ([0671bf4](https://github.com/micschr0/gradle-test-shard-plugin/commit/0671bf43e32f8d1eb4dd6ecc2dba9533465fff48))
+* **deps:** update dependency org.junit.jupiter:junit-jupiter to v6 ([#27](https://github.com/micschr0/gradle-test-shard-plugin/issues/27)) ([4c07de7](https://github.com/micschr0/gradle-test-shard-plugin/commit/4c07de7a756daada359d9762cbb531dfea8f28b4))
+
+
+### 🔧 CI
+
+* fix renovate app-token permission input name ([#28](https://github.com/micschr0/gradle-test-shard-plugin/issues/28)) ([76dfe79](https://github.com/micschr0/gradle-test-shard-plugin/commit/76dfe79ffa943f545a737d0f146c6bc8cc448668))
+* fix renovate pipeline and correct the gradle-api pin policy ([#21](https://github.com/micschr0/gradle-test-shard-plugin/issues/21)) ([f04e821](https://github.com/micschr0/gradle-test-shard-plugin/commit/f04e821787e7f7154c28979591f1b47e8bb9daf5))
+
+
+### 📦 Build
+
+* **renovate:** enable GHA automerge, drop stale gitAuthor/configMigration ([#23](https://github.com/micschr0/gradle-test-shard-plugin/issues/23)) ([e058d43](https://github.com/micschr0/gradle-test-shard-plugin/commit/e058d4379ba2b9ab83d34dbbf3b6e082be15d63e))
+
 ## [0.4.2](https://github.com/micschr0/gradle-test-shard-plugin/compare/v0.4.1...v0.4.2) (2026-07-23)
 
 

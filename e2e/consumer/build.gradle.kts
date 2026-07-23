@@ -1,7 +1,7 @@
 import de.micschro.shardwise.PlanDetail
 
 plugins {
-    id("de.micschro.shardwise") version "0.4.2" // x-release-please-version (kept in sync with root by release-please)
+    id("de.micschro.shardwise") version "0.4.3" // x-release-please-version (kept in sync with root by release-please)
 }
 
 // Driven by the e2e pipeline (see e2e/scripts/run-node.sh) so one fixture serves
