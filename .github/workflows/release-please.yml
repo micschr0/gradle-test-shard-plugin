@@ -1,0 +1,29 @@
+name: release-please
+
+# Keeps a release PR open that bumps the version across build.gradle.kts and the
+# e2e consumer, and rewrites CHANGELOG.md from Conventional Commits. Merging that
+# PR tags `vX.Y.Z`, which fires release.yml (portal publish + Sigstore signing).
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Prepare release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the release commit and create the tag
+      pull-requests: write # open and update the release PR
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
