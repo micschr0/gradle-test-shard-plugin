@@ -1,0 +1,42 @@
+name: release-please
+
+# Keeps a release PR open that bumps the version across build.gradle.kts and the
+# e2e consumer, and rewrites CHANGELOG.md from Conventional Commits. Merging that
+# PR tags `vX.Y.Z`, which fires release.yml (portal publish + Sigstore signing).
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Prepare release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the release commit and create the tag
+      issues: write # release-please labels the tracked release issue
+      pull-requests: write # open and update the release PR
+      actions: write # dispatch release.yml for the new tag
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # release-please pushes the tag with GITHUB_TOKEN, which does not trigger
+      # release.yml's `push` event. Dispatch it explicitly with the new tag.
+      - name: Trigger the release pipeline
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: gh workflow run release.yml --repo "$REPO" -f tag="$TAG"

@@ -3,12 +3,25 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # release-please pushes the tag with GITHUB_TOKEN, which by design does not
+  # trigger the `push` event above. Its workflow dispatches this instead,
+  # passing the freshly created tag so the same jobs run against it.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release (e.g. v0.4.2)
+        required: true
+        type: string
 
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
+
+env:
+  # The tag under release: the dispatch input, or the pushed tag's name.
+  VERSION: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   # Cache OFF, same reason as `publish` below: this job's `check` is the last
@@ -25,17 +38,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ env.VERSION }}
 
       # Fail fast if the tag and the built version disagree — otherwise the
       # portal would publish one version while the release notes describe
       # another. Reads `version = "x.y.z"` straight from build.gradle.kts.
       - name: Guard tag matches build version
-        env:
-          VERSION: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           tag_version="${VERSION#v}"
-          build_version="$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts)"
+          build_version="$(sed -n 's/^version = "\([^"]*\)".*/\1/p' build.gradle.kts)"
           if [ "$tag_version" != "$build_version" ]; then
             echo "::error::tag $VERSION (version $tag_version) does not match build.gradle.kts version $build_version"
             exit 1
@@ -65,6 +77,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ env.VERSION }}
 
       # Replay guard: a re-pushed or moved tag must not re-publish. If a
       # GitHub Release already exists for this tag, the version was already
@@ -72,7 +85,7 @@ jobs:
       - name: Guard against re-publish
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           if gh release view "$VERSION" \
@@ -144,6 +157,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ env.VERSION }}
 
       - name: Download signed artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -156,8 +170,6 @@ jobs:
       # Falls back to a generated note if the version has no changelog entry.
       - name: Extract changelog section
         id: notes
-        env:
-          VERSION: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           version="${VERSION#v}"
@@ -182,7 +194,7 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ inputs.tag || github.ref_name }}
         run: |
           gh release create "$VERSION" --title "$VERSION" \
             --notes-file notes.md --verify-tag \
