@@ -56,7 +56,7 @@ file.
 ```kotlin
 // root build.gradle.kts
 plugins {
-  id("de.micschro.shardwise") version "0.4.1"
+  id("de.micschro.shardwise") version "0.4.3" // x-release-please-version
 }
 ```
 
