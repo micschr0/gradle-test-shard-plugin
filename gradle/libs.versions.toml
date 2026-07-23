@@ -10,7 +10,7 @@ junitBom = "6.1.2"
 # Pinned at 1.9.3 (last release before the Anti-AI clause in 1.10.x; see
 # jqwik.net/release-notes.html). Targets JUnit Platform 1.x, empirically
 # confirmed under junit-bom 6.1.2 (tests green).
-jqwik = "1.9.3"
+jqwik = "1.10.1"
 kover = "0.9.9"
 
 [libraries]
