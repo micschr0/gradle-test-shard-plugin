@@ -4,6 +4,21 @@ All notable changes to this project are documented here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Pre-1.0, the public
 API may change between minor versions; every break is listed under its release.
 
+## [0.4.2](https://github.com/micschr0/gradle-test-shard-plugin/compare/v0.4.1...v0.4.2) (2026-07-23)
+
+
+### 🔧 CI
+
+* automate releases with release-please ([#17](https://github.com/micschr0/gradle-test-shard-plugin/issues/17)) ([0977d33](https://github.com/micschr0/gradle-test-shard-plugin/commit/0977d33a42f65bbf99b519874add4ba817492047))
+* drop the unused JVM setup from the e2e job ([#13](https://github.com/micschr0/gradle-test-shard-plugin/issues/13)) ([70afd64](https://github.com/micschr0/gradle-test-shard-plugin/commit/70afd64f4268e05adde80ef1abc486ca782e26d7))
+* sign release jars and gate on bundle presence ([#15](https://github.com/micschr0/gradle-test-shard-plugin/issues/15)) ([1f0c0f7](https://github.com/micschr0/gradle-test-shard-plugin/commit/1f0c0f7131c5631a47fd8045eea83d42c74ba46c))
+* stop linting markdown list-style and blank-lines ([#19](https://github.com/micschr0/gradle-test-shard-plugin/issues/19)) ([2e49684](https://github.com/micschr0/gradle-test-shard-plugin/commit/2e49684f7afae0f1009ba54af94385f3f43f5760))
+
+
+### 📦 Build
+
+* drop removed kotlin.incremental.useClasspathSnapshot property ([#16](https://github.com/micschr0/gradle-test-shard-plugin/issues/16)) ([057a706](https://github.com/micschr0/gradle-test-shard-plugin/commit/057a7064b14bcf977370344e61aa285d7be67591))
+
 ## [Unreleased]
 
 ### 🔧 CI
