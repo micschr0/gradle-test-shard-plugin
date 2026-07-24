@@ -4,6 +4,18 @@ All notable changes to this project are documented here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Pre-1.0, the public
 API may change between minor versions; every break is listed under its release.
 
+## [0.4.4](https://github.com/micschr0/gradle-test-shard-plugin/compare/v0.4.3...v0.4.4) (2026-07-24)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update dependency dev.gradleplugins:gradle-api to v8.11.1 ([#31](https://github.com/micschr0/gradle-test-shard-plugin/issues/31)) ([ad1904d](https://github.com/micschr0/gradle-test-shard-plugin/commit/ad1904d36eb10ee23f23032115b87ad9c5e351f9))
+
+
+### 🔧 CI
+
+* keep README install version in sync via release-please ([#29](https://github.com/micschr0/gradle-test-shard-plugin/issues/29)) ([4cd99fe](https://github.com/micschr0/gradle-test-shard-plugin/commit/4cd99fe4b6d8def64df9fc5589913f9919bc5ada))
+
 ## [0.4.3](https://github.com/micschr0/gradle-test-shard-plugin/compare/v0.4.2...v0.4.3) (2026-07-23)
 
 
