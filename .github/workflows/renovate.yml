@@ -43,6 +43,10 @@ jobs:
           repositories: "gradle-test-shard-plugin"
           permission-contents: write
           permission-pull-requests: write
+          # Issues: write needed for the Dependency Dashboard issue and for PR
+          # labels (renovate.json sets labels: ["dependencies"]). Without it the
+          # run logs "integration-unauthorized" and creates no PRs.
+          permission-issues: write
           permission-statuses: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

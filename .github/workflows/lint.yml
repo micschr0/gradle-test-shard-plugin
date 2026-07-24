@@ -1,0 +1,51 @@
+name: Workflow lint
+
+on:
+  push:
+    paths:
+      - ".github/workflows/**"
+      - "renovate.json"
+      - ".github/renovate.json"
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "renovate.json"
+      - ".github/renovate.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  lint:
+    name: actionlint + renovate config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # actionlint has no official pinned action — download the release binary at
+      # a fixed version. Catches invalid action inputs (e.g. permission-pull_requests
+      # with an underscore, which GitHub silently ignores).
+      - name: actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz actionlint
+          ./actionlint -color
+
+      # renovate-config-validator ships with the renovate package. --strict fails
+      # on deprecated/unknown config keys before Renovate would silently skip them.
+      - name: renovate config validator
+        run: npx --yes --package renovate -- renovate-config-validator --strict
