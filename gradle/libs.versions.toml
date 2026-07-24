@@ -5,7 +5,7 @@ ktlint = "14.2.0"
 binary-compatibility-validator = "0.18.1"
 plugin-publish = "2.1.1"
 sigstore = "2.2.0"
-gradleApi = "8.11"          # minimum supported Gradle API (binary-compat floor)
+gradleApi = "8.11.1"          # minimum supported Gradle API (binary-compat floor)
 junitBom = "6.1.2"
 # Pinned at 1.9.3 (last release before the Anti-AI clause in 1.10.x; see
 # jqwik.net/release-notes.html). Targets JUnit Platform 1.x, empirically
